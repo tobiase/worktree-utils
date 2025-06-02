@@ -26,8 +26,8 @@ func GetRepoRoot() (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-// getWorktreeBase returns the base directory for worktrees
-func getWorktreeBase() (string, error) {
+// GetWorktreeBase returns the base directory for worktrees
+func GetWorktreeBase() (string, error) {
 	repo, err := GetRepoRoot()
 	if err != nil {
 		return "", err
@@ -99,7 +99,7 @@ func Add(branch string) error {
 		return err
 	}
 	
-	worktreeBase, err := getWorktreeBase()
+	worktreeBase, err := GetWorktreeBase()
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func Remove(branch string) error {
 		return err
 	}
 	
-	worktreeBase, err := getWorktreeBase()
+	worktreeBase, err := GetWorktreeBase()
 	if err != nil {
 		return err
 	}
