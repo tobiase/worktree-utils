@@ -8,7 +8,15 @@ import (
 
 	"github.com/tobiase/worktree-utils/internal/config"
 	"github.com/tobiase/worktree-utils/internal/setup"
+	"github.com/tobiase/worktree-utils/internal/update"
 	"github.com/tobiase/worktree-utils/internal/worktree"
+)
+
+// Version information - set by build flags
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
 )
 
 const shellWrapper = `# Shell function to handle CD: and EXEC: prefixes
@@ -156,6 +164,16 @@ func main() {
 
 	case "project":
 		handleProjectCommand(args, configMgr)
+
+	case "version":
+		fmt.Printf("wt version %s\n", version)
+		if version != "dev" {
+			fmt.Printf("  commit: %s\n", commit)
+			fmt.Printf("  built:  %s\n", date)
+		}
+
+	case "update":
+		handleUpdateCommand(args)
 
 	default:
 		// Check if it's a project-specific command
@@ -379,9 +397,12 @@ Utility commands:
 Setup commands:
   setup               Install wt to ~/.local/bin
                       Options: --check, --uninstall
+  update              Check and install updates
+                      Options: --check, --force
 
 Other commands:
-  shell-init          Output shell initialization code`
+  shell-init          Output shell initialization code
+  version             Show version information`
 
 	// Add project-specific commands if available
 	if configMgr, err := config.NewManager(); err == nil {
@@ -429,4 +450,70 @@ Other commands:
 	}
 
 	fmt.Fprintln(os.Stderr, usage)
+}
+
+func handleUpdateCommand(args []string) {
+	// Parse flags
+	checkOnly := false
+	force := false
+	
+	for _, arg := range args {
+		switch arg {
+		case "--check":
+			checkOnly = true
+		case "--force":
+			force = true
+		}
+	}
+
+	fmt.Printf("Current version: %s\n", version)
+
+	// Check for updates
+	release, hasUpdate, err := update.CheckForUpdate(version)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wt: failed to check for updates: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Latest version: %s\n", release.TagName)
+
+	if !hasUpdate && !force {
+		fmt.Println("\nYou are already on the latest version!")
+		return
+	}
+
+	if checkOnly {
+		if hasUpdate {
+			fmt.Printf("\nUpdate available: %s\n", release.TagName)
+			fmt.Println("\nChanges:")
+			fmt.Println(release.Body)
+		}
+		return
+	}
+
+	// Download and install update
+	fmt.Println("\nDownloading update...")
+	
+	var lastProgress int
+	err = update.DownloadAndInstall(release, func(downloaded, total int64) {
+		progress := int(float64(downloaded) / float64(total) * 100)
+		if progress != lastProgress && progress%10 == 0 {
+			fmt.Printf("\rProgress: %d%%", progress)
+			lastProgress = progress
+		}
+	})
+	
+	fmt.Println() // New line after progress
+	
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wt: update failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✓ Successfully updated to %s\n", release.TagName)
+	
+	if release.Body != "" {
+		fmt.Println("\nChanges in this version:")
+		fmt.Println(release.Body)
+	}
 }

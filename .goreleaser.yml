@@ -10,6 +10,11 @@ builds:
     main: ./cmd/wt
     env:
       - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
     goos:
       - linux
       - darwin
@@ -70,6 +75,12 @@ release:
     
     # Then install
     ./wt-bin setup
+    ```
+
+    ### Update existing installation
+    If you already have wt installed, simply run:
+    ```bash
+    wt update
     ```
 
     ### Manual download
