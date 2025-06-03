@@ -18,10 +18,11 @@ type NavigationCommand struct {
 
 // ProjectConfig represents configuration for a specific project
 type ProjectConfig struct {
-	Name     string                       `yaml:"name"`
-	Match    ProjectMatch                 `yaml:"match"`
-	Commands map[string]NavigationCommand `yaml:"commands"`
-	Settings ProjectSettings              `yaml:"settings"`
+	Name       string                       `yaml:"name"`
+	Match      ProjectMatch                 `yaml:"match"`
+	Commands   map[string]NavigationCommand `yaml:"commands"`
+	Settings   ProjectSettings              `yaml:"settings"`
+	Virtualenv *VirtualenvConfig            `yaml:"virtualenv,omitempty"`
 }
 
 // ProjectMatch defines how to match a project
@@ -33,6 +34,13 @@ type ProjectMatch struct {
 // ProjectSettings contains project-specific settings
 type ProjectSettings struct {
 	WorktreeBase string `yaml:"worktree_base"`
+}
+
+// VirtualenvConfig contains virtualenv configuration
+type VirtualenvConfig struct {
+	Name         string `yaml:"name"`                    // Directory name (e.g., .venv, venv)
+	Python       string `yaml:"python,omitempty"`        // Python executable (defaults to python3)
+	AutoCommands bool   `yaml:"auto_commands,omitempty"` // Auto-add venv commands
 }
 
 // Config represents the global wt configuration
@@ -90,6 +98,10 @@ func (m *Manager) LoadProject(currentPath string, gitRemote string) error {
 
 		if m.matchesProject(project, currentPath, gitRemote) {
 			m.currentProject = project
+			// Auto-register virtualenv commands if configured
+			if project.Virtualenv != nil && project.Virtualenv.AutoCommands {
+				m.registerVirtualenvCommands(project)
+			}
 			return nil
 		}
 	}
@@ -174,4 +186,40 @@ func (m *Manager) SaveProjectConfig(project *ProjectConfig) error {
 // GetConfigDir returns the configuration directory
 func (m *Manager) GetConfigDir() string {
 	return m.configDir
+}
+
+// registerVirtualenvCommands adds virtualenv commands to the project
+func (m *Manager) registerVirtualenvCommands(project *ProjectConfig) {
+	if project.Commands == nil {
+		project.Commands = make(map[string]NavigationCommand)
+	}
+
+	// Add venv activation command
+	project.Commands["venv"] = NavigationCommand{
+		Description: "Activate virtualenv",
+		Type:        "virtualenv",
+		Target:      "activate",
+	}
+
+	// Add venv creation command
+	project.Commands["mkvenv"] = NavigationCommand{
+		Description: "Create virtualenv",
+		Type:        "virtualenv",
+		Target:      "create",
+	}
+
+	// Add venv removal command
+	project.Commands["rmvenv"] = NavigationCommand{
+		Description: "Remove virtualenv",
+		Type:        "virtualenv",
+		Target:      "remove",
+	}
+}
+
+// GetVirtualenvConfig returns the virtualenv configuration for the current project
+func (m *Manager) GetVirtualenvConfig() *VirtualenvConfig {
+	if m.currentProject == nil {
+		return nil
+	}
+	return m.currentProject.Virtualenv
 }

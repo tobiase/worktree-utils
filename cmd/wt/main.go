@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/tobiase/worktree-utils/internal/config"
 	"github.com/tobiase/worktree-utils/internal/setup"
 	"github.com/tobiase/worktree-utils/internal/worktree"
 )
 
-const shellWrapper = `# Shell function to handle CD: prefix
+const shellWrapper = `# Shell function to handle CD: and EXEC: prefixes
 wt() {
   output=$("${WT_BIN:-wt-bin}" "$@" 2>&1)
   exit_code=$?
@@ -18,6 +19,8 @@ wt() {
   if [ $exit_code -eq 0 ]; then
     if [[ "$output" == "CD:"* ]]; then
       cd "${output#CD:}"
+    elif [[ "$output" == "EXEC:"* ]]; then
+      eval "${output#EXEC:}"
     else
       [ -n "$output" ] && echo "$output"
     fi
@@ -149,9 +152,13 @@ func main() {
 		handleProjectCommand(args, configMgr)
 
 	default:
-		// Check if it's a project-specific navigation command
+		// Check if it's a project-specific command
 		if navCmd, exists := configMgr.GetCommand(cmd); exists {
-			handleNavigationCommand(navCmd)
+			if navCmd.Type == "virtualenv" {
+				handleVirtualenvCommand(navCmd, configMgr)
+			} else {
+				handleNavigationCommand(navCmd)
+			}
 		} else {
 			fmt.Fprintf(os.Stderr, "wt: unknown command '%s'\n", cmd)
 			showUsage()
@@ -174,6 +181,80 @@ func handleNavigationCommand(navCmd *config.NavigationCommand) {
 	}
 	
 	fmt.Printf("CD:%s", targetPath)
+}
+
+func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config.Manager) {
+	repo, err := worktree.GetRepoRoot()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+	
+	venvConfig := configMgr.GetVirtualenvConfig()
+	if venvConfig == nil {
+		fmt.Fprintf(os.Stderr, "wt: virtualenv not configured for this project\n")
+		os.Exit(1)
+	}
+	
+	// Default values
+	venvName := venvConfig.Name
+	if venvName == "" {
+		venvName = ".venv"
+	}
+	
+	python := venvConfig.Python
+	if python == "" {
+		python = "python3"
+	}
+	
+	venvPath := filepath.Join(repo, venvName)
+	
+	switch navCmd.Target {
+	case "activate":
+		// Check if virtualenv exists
+		activateScript := filepath.Join(venvPath, "bin", "activate")
+		if _, err := os.Stat(activateScript); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "wt: virtualenv not found at %s\n", venvPath)
+			fmt.Fprintf(os.Stderr, "Run 'wt mkvenv' to create it\n")
+			os.Exit(1)
+		}
+		// Output EXEC command to activate virtualenv
+		fmt.Printf("EXEC:source %s", activateScript)
+		
+	case "create":
+		// Check if virtualenv already exists
+		if _, err := os.Stat(venvPath); err == nil {
+			fmt.Fprintf(os.Stderr, "wt: virtualenv already exists at %s\n", venvPath)
+			os.Exit(1)
+		}
+		
+		// Create virtualenv
+		fmt.Printf("Creating virtualenv at %s...\n", venvPath)
+		if err := worktree.RunCommand(python, "-m", "venv", venvPath); err != nil {
+			fmt.Fprintf(os.Stderr, "wt: failed to create virtualenv: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Virtualenv created successfully")
+		
+	case "remove":
+		// Check if virtualenv exists
+		if _, err := os.Stat(venvPath); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "wt: virtualenv not found at %s\n", venvPath)
+			os.Exit(1)
+		}
+		
+		// Remove virtualenv
+		fmt.Printf("Removing virtualenv at %s...\n", venvPath)
+		if err := os.RemoveAll(venvPath); err != nil {
+			fmt.Fprintf(os.Stderr, "wt: failed to remove virtualenv: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Virtualenv removed successfully")
+		
+	default:
+		fmt.Fprintf(os.Stderr, "wt: unknown virtualenv action '%s'\n", navCmd.Target)
+		os.Exit(1)
+	}
 }
 
 func handleProjectCommand(args []string, configMgr *config.Manager) {
@@ -305,7 +386,16 @@ Other commands:
 		if project := configMgr.GetCurrentProject(); project != nil {
 			if len(project.Commands) > 0 {
 				usage += fmt.Sprintf("\n\nProject '%s' commands:", project.Name)
-				for name, cmd := range project.Commands {
+				
+				// Sort commands for consistent output
+				var cmdNames []string
+				for name := range project.Commands {
+					cmdNames = append(cmdNames, name)
+				}
+				sort.Strings(cmdNames)
+				
+				for _, name := range cmdNames {
+					cmd := project.Commands[name]
 					usage += fmt.Sprintf("\n  %-18s %s", name, cmd.Description)
 				}
 			}
