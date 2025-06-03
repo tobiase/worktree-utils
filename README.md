@@ -15,11 +15,11 @@ A fast, project-aware Git worktree manager that simplifies working with multiple
 ### Quick Install
 
 ```bash
-# Download the latest release (example for macOS arm64)
-curl -L https://github.com/tobiase/worktree-utils/releases/latest/download/wt_darwin_arm64.tar.gz | tar xz
+# macOS (Universal binary for Intel & Apple Silicon)
+curl -sL https://github.com/tobiase/worktree-utils/releases/latest/download/wt_v0.3.0_Darwin_all.tar.gz | tar xz && ./wt_v0.3.0_Darwin_all/wt-bin setup
 
-# Run setup
-./wt-bin setup
+# Linux x86_64
+curl -sL https://github.com/tobiase/worktree-utils/releases/latest/download/wt_v0.3.0_Linux_x86_64.tar.gz | tar xz && ./wt_v0.3.0_Linux_x86_64/wt-bin setup
 
 # Restart your shell or run
 source ~/.config/wt/init.sh

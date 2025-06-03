@@ -141,7 +141,21 @@ func DownloadAndInstall(release *Release, onProgress func(downloaded, total int6
 
 // getAssetName returns the expected asset name for the current platform
 func getAssetName() string {
-	return fmt.Sprintf("wt-bin-%s-%s", runtime.GOOS, runtime.GOARCH)
+	os := runtime.GOOS
+	arch := runtime.GOARCH
+	
+	// Map to match GoReleaser output
+	if os == "darwin" {
+		// Universal binary for macOS
+		return "wt_Darwin_all"
+	}
+	
+	// For Linux, map architecture names
+	if arch == "amd64" {
+		arch = "x86_64"
+	}
+	
+	return fmt.Sprintf("wt_%s_%s", strings.Title(os), arch)
 }
 
 // downloadFile downloads a file with progress reporting

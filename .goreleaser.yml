@@ -31,6 +31,8 @@ universal_binaries:
 
 archives:
   - id: wt
+    builds:
+      - wt
     name_template: >-
       wt_
       {{- .Version }}_
@@ -38,6 +40,11 @@ archives:
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "arm64" }}arm64
       {{- else }}{{ .Arch }}{{ end }}
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    wrap_in_directory: true
     files:
       - LICENSE
       - README.md
@@ -62,20 +69,19 @@ release:
     ## Installation
 
     ### Quick install (macOS/Linux)
-    ```bash
-    # Download latest release for your platform:
-    # macOS Intel
-    curl -L https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Darwin_x86_64.tar.gz | tar xz
     
-    # macOS Apple Silicon
-    curl -L https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Darwin_arm64.tar.gz | tar xz
+    ```bash
+    # macOS (Universal binary for Intel & Apple Silicon)
+    curl -sL https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Darwin_all.tar.gz | tar xz && ./wt_{{ .Version }}_Darwin_all/wt-bin setup
     
     # Linux x86_64
-    curl -L https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Linux_x86_64.tar.gz | tar xz
+    curl -sL https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Linux_x86_64.tar.gz | tar xz && ./wt_{{ .Version }}_Linux_x86_64/wt-bin setup
     
-    # Then install
-    ./wt-bin setup
+    # Linux arm64
+    curl -sL https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Linux_arm64.tar.gz | tar xz && ./wt_{{ .Version }}_Linux_arm64/wt-bin setup
     ```
+    
+    The archive extracts to a directory named `wt_{{ .Version }}_<platform>` which you can delete after setup.
 
     ### Update existing installation
     If you already have wt installed, simply run:
