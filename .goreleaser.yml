@@ -16,9 +16,10 @@ builds:
     goarch:
       - amd64
       - arm64
-    # macOS universal binary
-    universal_binaries:
-      - replace: true
+
+# macOS universal binary
+universal_binaries:
+  - replace: true
 
 archives:
   - id: wt
