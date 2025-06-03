@@ -134,3 +134,39 @@ gh issue create --title "Title" --body "Content with \`backticks\`"
 - GitHub Issues are used to track outstanding work
 - Issues are labeled with `enhancement`, `good first issue`, `ux`, etc.
 - Reference issues in commits: `feat: add feature (#123)`
+
+## Commit Message Guidelines
+
+When creating commits, follow these guidelines:
+
+1. **Format**: Use conventional commit format
+   ```
+   type: description
+   
+   - Bullet points for details
+   - Keep it concise and clear
+   ```
+
+2. **Types**:
+   - `feat`: New feature
+   - `fix`: Bug fix
+   - `docs`: Documentation changes
+   - `style`: Code style changes (formatting, missing semicolons, etc.)
+   - `refactor`: Code changes that neither fix a bug nor add a feature
+   - `test`: Adding or modifying tests
+   - `chore`: Maintenance tasks, dependency updates, etc.
+
+3. **Do NOT include**:
+   - "Generated with Claude Code" attribution
+   - Co-Authored-By lines
+
+4. **Good examples**:
+   ```
+   feat: add virtualenv management commands
+   
+   - Add support for EXEC: prefix in shell wrapper
+   - Implement venv, mkvenv, and rmvenv commands
+   - Add VirtualenvConfig to project configuration
+   ```
+
+5. **Reference issues when applicable**: `fix: correct worktree path handling (#42)`
