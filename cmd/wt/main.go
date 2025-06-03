@@ -92,11 +92,17 @@ func main() {
 		}
 
 	case "go":
+		var path string
+		var err error
+		
 		if len(args) < 1 {
-			fmt.Fprintf(os.Stderr, "Usage: wt go <index|branch>\n")
-			os.Exit(1)
+			// No arguments - go to repository root
+			path, err = worktree.GetRepoRoot()
+		} else {
+			// Go to specified worktree
+			path, err = worktree.Go(args[0])
 		}
-		path, err := worktree.Go(args[0])
+		
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 			os.Exit(1)
@@ -361,7 +367,7 @@ Core commands:
   list                List all worktrees
   add <branch>        Add a new worktree
   rm <branch>         Remove a worktree
-  go <index|branch>   Switch to a worktree
+  go [index|branch]   Switch to a worktree (no args = repo root)
   new <branch>        Create and switch to a new worktree
                       Options: --base <branch>
 
@@ -385,18 +391,38 @@ Other commands:
 		
 		if project := configMgr.GetCurrentProject(); project != nil {
 			if len(project.Commands) > 0 {
-				usage += fmt.Sprintf("\n\nProject '%s' commands:", project.Name)
+				// Separate commands by type
+				var navCommands []string
+				var venvCommands []string
 				
-				// Sort commands for consistent output
-				var cmdNames []string
-				for name := range project.Commands {
-					cmdNames = append(cmdNames, name)
+				for name, cmd := range project.Commands {
+					if cmd.Type == "virtualenv" {
+						venvCommands = append(venvCommands, name)
+					} else {
+						navCommands = append(navCommands, name)
+					}
 				}
-				sort.Strings(cmdNames)
 				
-				for _, name := range cmdNames {
-					cmd := project.Commands[name]
-					usage += fmt.Sprintf("\n  %-18s %s", name, cmd.Description)
+				// Sort both lists
+				sort.Strings(navCommands)
+				sort.Strings(venvCommands)
+				
+				// Show navigation commands
+				if len(navCommands) > 0 {
+					usage += fmt.Sprintf("\n\nProject '%s' navigation:", project.Name)
+					for _, name := range navCommands {
+						cmd := project.Commands[name]
+						usage += fmt.Sprintf("\n  %-18s %s", name, cmd.Description)
+					}
+				}
+				
+				// Show virtualenv commands
+				if len(venvCommands) > 0 {
+					usage += fmt.Sprintf("\n\nProject '%s' virtualenv:", project.Name)
+					for _, name := range venvCommands {
+						cmd := project.Commands[name]
+						usage += fmt.Sprintf("\n  %-18s %s", name, cmd.Description)
+					}
 				}
 			}
 		}
