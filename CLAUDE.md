@@ -99,3 +99,38 @@ This convention is enforced throughout the codebase.
 4. **Setup Command Handling**: The `setup` command bypasses normal initialization since it needs to work before configuration exists. It's handled specially at the start of main().
 
 5. **Export Requirements**: Several functions in the worktree package (like `GetWorktreeBase`) are exported because they're used by other packages, not just internally.
+
+## Working with GitHub CLI
+
+### Creating Issues
+When creating issues with `gh issue create`, be careful with shell escaping:
+- Use single quotes for the body to avoid shell interpretation
+- Backticks in markdown need to be escaped or avoided in direct commands
+- Package paths like `internal/config` can be interpreted as shell paths
+
+Example:
+```bash
+# Good - using single quotes
+gh issue create --title "Title" --body 'Content with `backticks`'
+
+# Problematic - double quotes with backticks
+gh issue create --title "Title" --body "Content with \`backticks\`"
+```
+
+### Release Workflow
+- Tag pushes trigger the release workflow: `git tag v0.1.0 && git push origin v0.1.0`
+- If a release fails, delete and recreate the tag to retrigger
+- GoReleaser v2 requires different config syntax than v1
+- The `universal_binaries` section must be at the top level, not inside builds
+
+## Development Workflow
+
+### Testing Changes
+1. Build locally: `make build`
+2. Test with local binary: `./wt-bin <command>`
+3. For shell integration testing: `export WT_BIN="$PWD/wt-bin" && source <(./wt-bin shell-init)`
+
+### Managing Tasks Across Sessions
+- GitHub Issues are used to track outstanding work
+- Issues are labeled with `enhancement`, `good first issue`, `ux`, etc.
+- Reference issues in commits: `feat: add feature (#123)`
