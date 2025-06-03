@@ -19,7 +19,10 @@ builds:
 
 # macOS universal binary
 universal_binaries:
-  - replace: true
+  - id: wt-universal
+    ids:
+      - wt
+    replace: true
 
 archives:
   - id: wt
@@ -30,10 +33,6 @@ archives:
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "arm64" }}arm64
       {{- else }}{{ .Arch }}{{ end }}
-    format: tar.gz
-    format_overrides:
-      - goos: windows
-        format: zip
     files:
       - LICENSE
       - README.md
@@ -59,10 +58,17 @@ release:
 
     ### Quick install (macOS/Linux)
     ```bash
-    # Download latest release
-    curl -L https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_{{ .Os }}_{{ .Arch }}.tar.gz | tar xz
+    # Download latest release for your platform:
+    # macOS Intel
+    curl -L https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Darwin_x86_64.tar.gz | tar xz
     
-    # Install
+    # macOS Apple Silicon
+    curl -L https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Darwin_arm64.tar.gz | tar xz
+    
+    # Linux x86_64
+    curl -L https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Linux_x86_64.tar.gz | tar xz
+    
+    # Then install
     ./wt-bin setup
     ```
 
