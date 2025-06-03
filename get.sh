@@ -85,8 +85,18 @@ install_wt() {
     
     info "Downloading wt..."
     
-    # Use latest release URL
-    URL="https://github.com/tobiase/worktree-utils/releases/latest/download/wt_${PLATFORM}.tar.gz"
+    # Get latest version from GitHub API
+    VERSION=$(curl -fsSL https://api.github.com/repos/tobiase/worktree-utils/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+    
+    if [ -z "$VERSION" ]; then
+        error "Failed to determine latest version"
+    fi
+    
+    info "Latest version: $VERSION"
+    
+    # Construct download URL with version (strip 'v' prefix for asset name)
+    VERSION_NO_V=${VERSION#v}
+    URL="https://github.com/tobiase/worktree-utils/releases/download/${VERSION}/wt_${VERSION_NO_V}_${PLATFORM}.tar.gz"
     
     cd "$TEMP_DIR"
     
@@ -112,7 +122,16 @@ install_wt() {
     fi
     
     info "Running setup..."
-    if ! "$EXTRACT_DIR/wt-bin" setup; then
+    # The binary might be named 'worktree-utils' or 'wt-bin'
+    if [ -f "$EXTRACT_DIR/wt-bin" ]; then
+        BINARY="$EXTRACT_DIR/wt-bin"
+    elif [ -f "$EXTRACT_DIR/worktree-utils" ]; then
+        BINARY="$EXTRACT_DIR/worktree-utils"
+    else
+        error "Could not find binary in $EXTRACT_DIR"
+    fi
+    
+    if ! "$BINARY" setup; then
         error "Setup failed"
     fi
     
