@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/tobiase/worktree-utils/internal/config"
+	"github.com/tobiase/worktree-utils/internal/setup"
 	"github.com/tobiase/worktree-utils/internal/worktree"
 )
 
@@ -35,6 +36,12 @@ func main() {
 
 	cmd := os.Args[1]
 	args := os.Args[2:]
+
+	// Special handling for setup command (doesn't need config)
+	if cmd == "setup" {
+		handleSetupCommand(args)
+		return
+	}
 
 	// Initialize config manager
 	configMgr, err := config.NewManager()
@@ -233,6 +240,39 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 	}
 }
 
+func handleSetupCommand(args []string) {
+	if len(args) > 0 {
+		switch args[0] {
+		case "--check":
+			if err := setup.Check(); err != nil {
+				fmt.Fprintf(os.Stderr, "Check failed: %v\n", err)
+				os.Exit(1)
+			}
+		case "--uninstall":
+			if err := setup.Uninstall(); err != nil {
+				fmt.Fprintf(os.Stderr, "Uninstall failed: %v\n", err)
+				os.Exit(1)
+			}
+		default:
+			fmt.Fprintf(os.Stderr, "Unknown setup option: %s\n", args[0])
+			fmt.Fprintf(os.Stderr, "Usage: wt setup [--check|--uninstall]\n")
+			os.Exit(1)
+		}
+	} else {
+		// Get current binary path
+		binaryPath, err := os.Executable()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to get executable path: %v\n", err)
+			os.Exit(1)
+		}
+		
+		if err := setup.Setup(binaryPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Setup failed: %v\n", err)
+			os.Exit(1)
+		}
+	}
+}
+
 func showUsage() {
 	usage := `Usage: wt <command> [arguments]
 
@@ -248,6 +288,10 @@ Utility commands:
   env-copy <branch>   Copy .env files to another worktree
                       Options: --recursive
   project init <name> Initialize project configuration
+
+Setup commands:
+  setup               Install wt to ~/.local/bin
+                      Options: --check, --uninstall
 
 Other commands:
   shell-init          Output shell initialization code`
