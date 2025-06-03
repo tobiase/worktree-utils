@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(gh issue create:*)",
-      "Bash(gh issue view:*)"
-    ],
-    "deny": []
-  }
-}
