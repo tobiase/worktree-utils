@@ -15,15 +15,12 @@ A fast, project-aware Git worktree manager that simplifies working with multiple
 ### Quick Install
 
 ```bash
-# macOS (Universal binary for Intel & Apple Silicon)
-curl -sL https://github.com/tobiase/worktree-utils/releases/latest/download/wt_v0.3.0_Darwin_all.tar.gz | tar xz && ./wt_v0.3.0_Darwin_all/wt-bin setup
-
-# Linux x86_64
-curl -sL https://github.com/tobiase/worktree-utils/releases/latest/download/wt_v0.3.0_Linux_x86_64.tar.gz | tar xz && ./wt_v0.3.0_Linux_x86_64/wt-bin setup
-
-# Restart your shell or run
-source ~/.config/wt/init.sh
+curl -fsSL https://raw.githubusercontent.com/tobiase/worktree-utils/main/get.sh | sh
 ```
+
+### Prebuilt Binaries
+
+Download the latest releases from the [GitHub releases page](https://github.com/tobiase/worktree-utils/releases).
 
 ### Build from Source
 

@@ -30,9 +30,7 @@ universal_binaries:
     replace: true
 
 archives:
-  - id: wt
-    builds:
-      - wt
+  - id: default
     name_template: >-
       wt_
       {{- .Version }}_
@@ -68,20 +66,13 @@ release:
   header: |
     ## Installation
 
-    ### Quick install (macOS/Linux)
+    ### Quick install
     
     ```bash
-    # macOS (Universal binary for Intel & Apple Silicon)
-    curl -sL https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Darwin_all.tar.gz | tar xz && ./wt_{{ .Version }}_Darwin_all/wt-bin setup
-    
-    # Linux x86_64
-    curl -sL https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Linux_x86_64.tar.gz | tar xz && ./wt_{{ .Version }}_Linux_x86_64/wt-bin setup
-    
-    # Linux arm64
-    curl -sL https://github.com/tobiase/worktree-utils/releases/latest/download/wt_{{ .Version }}_Linux_arm64.tar.gz | tar xz && ./wt_{{ .Version }}_Linux_arm64/wt-bin setup
+    curl -fsSL https://raw.githubusercontent.com/tobiase/worktree-utils/main/get.sh | sh
     ```
     
-    The archive extracts to a directory named `wt_{{ .Version }}_<platform>` which you can delete after setup.
+    Or download specific platform archives below.
 
     ### Update existing installation
     If you already have wt installed, simply run:
