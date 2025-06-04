@@ -117,19 +117,47 @@ func Add(branch string) error {
 	return cmd.Run()
 }
 
-// Remove deletes a worktree
-func Remove(branch string) error {
+// Remove deletes a worktree by branch name or path
+func Remove(target string) error {
 	repo, err := GetRepoRoot()
 	if err != nil {
 		return err
 	}
 	
-	worktreeBase, err := GetWorktreeBase()
+	// First, try to find the worktree by branch name
+	worktrees, err := parseWorktrees()
 	if err != nil {
 		return err
 	}
 	
-	worktreePath := filepath.Join(worktreeBase, branch)
+	var worktreePath string
+	for _, wt := range worktrees {
+		if wt.Branch == target {
+			worktreePath = wt.Path
+			break
+		}
+	}
+	
+	// If not found by branch name, check if target is a path
+	if worktreePath == "" {
+		// Check if target is an absolute path that exists
+		if filepath.IsAbs(target) {
+			if _, err := os.Stat(target); err == nil {
+				worktreePath = target
+			}
+		} else {
+			// Try as a relative path from repo root
+			testPath := filepath.Join(repo, target)
+			if _, err := os.Stat(testPath); err == nil {
+				worktreePath = testPath
+			}
+		}
+	}
+	
+	if worktreePath == "" {
+		return fmt.Errorf("worktree '%s' not found", target)
+	}
+	
 	cmd := exec.Command("git", "-C", repo, "worktree", "remove", worktreePath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

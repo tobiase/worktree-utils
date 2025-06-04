@@ -98,6 +98,10 @@ Configuration files are stored in `~/.config/wt/`:
     └── project2.yaml
 ```
 
+## Documentation
+
+- [Git Commands Reference](docs/GIT_COMMANDS.md) - Detailed documentation of the underlying git commands
+
 ## Uninstall
 
 ```bash
