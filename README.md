@@ -1,6 +1,12 @@
 # wt - Git Worktree Manager
 
+![contributions not accepted](https://img.shields.io/badge/contributions-not%20accepted-red.svg)
+
 A fast, project-aware Git worktree manager that simplifies working with multiple branches.
+
+## Status
+
+This is a personal utility project. While public for ease of access, I'm not accepting external contributions at this time.
 
 ## Features
 

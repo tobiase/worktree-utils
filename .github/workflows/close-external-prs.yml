@@ -1,0 +1,14 @@
+name: Close External PRs
+on:
+  pull_request_target:
+    types: [opened]
+
+jobs:
+  close-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close PR
+        if: github.event.pull_request.user.login != 'tobiase'
+        uses: superbrothers/close-pull-request@v3
+        with:
+          comment: "Thank you for your interest! This project is not accepting external contributions at this time. Feel free to fork for your own use!"
