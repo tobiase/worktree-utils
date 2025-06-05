@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Session Continuity
+
+**IMPORTANT**: Before starting work, check `docs/SESSION_LOG.md` for:
+- Recent work completed
+- Open questions and next steps
+- Design decisions made
+
+After completing work, update SESSION_LOG.md with:
+- What was accomplished
+- Key decisions and rationale
+- Next steps for future sessions
+
 ## Development Commands
 
 ```bash
@@ -134,6 +146,29 @@ gh issue create --title "Title" --body "Content with \`backticks\`"
 - GitHub Issues are used to track outstanding work
 - Issues are labeled with `enhancement`, `good first issue`, `ux`, etc.
 - Reference issues in commits: `feat: add feature (#123)`
+
+## Documentation Structure
+
+The project maintains comprehensive documentation in the `docs/` directory:
+
+1. **SESSION_LOG.md** - Work completed each session (CHECK THIS FIRST!)
+   - Tracks what was done, decisions made, and next steps
+   - Essential for continuing work between sessions
+   
+2. **DESIGN_DECISIONS.md** - Architectural choices and patterns
+   - Documents why certain approaches were chosen
+   - Reference when implementing new features
+   
+3. **DEVELOPMENT.md** - Development workflow and practices
+   - How to build, test, and release
+   - Code style and conventions
+   
+4. **CLI_ERGONOMICS.md** - CLI usability assessment
+   - Analysis of command structure
+   - Improvement ideas and user experience considerations
+   
+5. **GIT_COMMANDS.md** - Git command reference
+   - Quick reference for git worktree commands
 
 ## Commit Message Guidelines
 

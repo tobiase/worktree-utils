@@ -84,7 +84,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Usage: wt add <branch>\n")
 			os.Exit(1)
 		}
-		if err := worktree.Add(args[0]); err != nil {
+		if err := worktree.Add(args[0], configMgr); err != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 			os.Exit(1)
 		}
@@ -134,7 +134,7 @@ func main() {
 			}
 		}
 		
-		path, err := worktree.NewWorktree(branch, baseBranch)
+		path, err := worktree.NewWorktree(branch, baseBranch, configMgr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 			os.Exit(1)

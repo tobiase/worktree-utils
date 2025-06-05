@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/tobiase/worktree-utils/internal/config"
 )
 
 // GetGitRemote returns the origin remote URL for the current repository
@@ -34,7 +36,7 @@ func GetRelativePath(absolutePath string) (string, error) {
 }
 
 // NewWorktree creates a new worktree and returns the path to switch to
-func NewWorktree(branch string, baseBranch string) (string, error) {
+func NewWorktree(branch string, baseBranch string, cfg *config.Manager) (string, error) {
 	repo, err := GetRepoRoot()
 	if err != nil {
 		return "", err
@@ -43,6 +45,13 @@ func NewWorktree(branch string, baseBranch string) (string, error) {
 	worktreeBase, err := GetWorktreeBase()
 	if err != nil {
 		return "", err
+	}
+	
+	// Use project-specific worktree base if configured
+	if cfg != nil && cfg.GetCurrentProject() != nil {
+		if projectBase := cfg.GetCurrentProject().Settings.WorktreeBase; projectBase != "" {
+			worktreeBase = projectBase
+		}
 	}
 
 	// Create worktree base directory if it doesn't exist
