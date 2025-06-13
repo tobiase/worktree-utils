@@ -339,7 +339,7 @@ func TestUninstall(t *testing.T) {
 			w.Close()
 			os.Stdout = oldStdout
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			_, _ = io.Copy(&buf, r)
 			output := buf.String()
 
 			if err != nil {
@@ -445,7 +445,7 @@ func TestCheck(t *testing.T) {
 			w.Close()
 			os.Stdout = oldStdout
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			_, _ = io.Copy(&buf, r)
 			output := buf.String()
 
 			if err != nil {

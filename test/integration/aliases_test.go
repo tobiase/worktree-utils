@@ -20,11 +20,11 @@ func TestCommandAliases(t *testing.T) {
 
 	// Change to repo directory
 	oldWd, _ := os.Getwd()
-	os.Chdir(repo)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	// Create a test worktree
-	helpers.AddTestWorktree(t, repo, "test-branch")
+	_, _ = helpers.AddTestWorktree(t, repo, "test-branch")
 
 	tests := []struct {
 		name         string

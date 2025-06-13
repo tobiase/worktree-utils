@@ -190,7 +190,7 @@ func TestCopyEnvFile(t *testing.T) {
 
 				// Change to subdirectory
 				oldWd, _ := os.Getwd()
-				os.Chdir(apiDir)
+				_ = os.Chdir(apiDir)
 				return repo, func() {
 					_ = os.Chdir(oldWd)
 					cleanup()
@@ -212,7 +212,7 @@ func TestCopyEnvFile(t *testing.T) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 
 				// Create a worktree to copy to
-				helpers.AddTestWorktree(t, repo, "feature-4")
+				_, _ = helpers.AddTestWorktree(t, repo, "feature-4")
 
 				oldWd, _ := os.Getwd()
 				_ = os.Chdir(repo)
@@ -252,7 +252,7 @@ func TestCopyEnvFile(t *testing.T) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 
 				// Create a worktree to copy to
-				helpers.AddTestWorktree(t, repo, "feature-5")
+				_, _ = helpers.AddTestWorktree(t, repo, "feature-5")
 
 				oldWd, _ := os.Getwd()
 				_ = os.Chdir(repo)

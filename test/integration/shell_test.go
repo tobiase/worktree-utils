@@ -32,9 +32,9 @@ func TestShellWrapper(t *testing.T) {
 			setup: func(t *testing.T) (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -49,11 +49,11 @@ func TestShellWrapper(t *testing.T) {
 
 				// Create a temporary HOME directory
 				tempHome := filepath.Join(os.TempDir(), "wt-test-home")
-				os.MkdirAll(tempHome, 0755)
+				_ = os.MkdirAll(tempHome, 0755)
 
 				// Create config directory structure
 				configDir := filepath.Join(tempHome, ".config", "wt", "projects")
-				os.MkdirAll(configDir, 0755)
+				_ = os.MkdirAll(configDir, 0755)
 
 				// Create project config with virtualenv
 				// Resolve symlinks for macOS compatibility
@@ -68,23 +68,23 @@ virtualenv:
   auto_commands: true
 `
 				configPath := filepath.Join(configDir, "testproject.yaml")
-				os.WriteFile(configPath, []byte(projectConfig), 0644)
+				_ = os.WriteFile(configPath, []byte(projectConfig), 0644)
 
 				// Create the virtualenv directory and activation script
 				venvBin := filepath.Join(repo, ".venv", "bin")
-				os.MkdirAll(venvBin, 0755)
+				_ = os.MkdirAll(venvBin, 0755)
 
 				// Create a dummy activate script
 				activateScript := filepath.Join(venvBin, "activate")
-				os.WriteFile(activateScript, []byte("#!/bin/bash\n# Dummy activate script\n"), 0755)
+				_ = os.WriteFile(activateScript, []byte("#!/bin/bash\n# Dummy activate script\n"), 0755)
 
 				oldWd, _ := os.Getwd()
 				oldHome := os.Getenv("HOME")
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				os.Setenv("HOME", tempHome)
 
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					os.Setenv("HOME", oldHome)
 					os.RemoveAll(tempHome)
 					cleanup()
@@ -99,9 +99,9 @@ virtualenv:
 			setup: func(t *testing.T) (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},

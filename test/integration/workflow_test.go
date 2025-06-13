@@ -22,8 +22,8 @@ func TestCompleteWorkflow(t *testing.T) {
 
 	// Change to repo directory
 	oldWd, _ := os.Getwd()
-	os.Chdir(repo)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	// Test workflow steps
 	t.Run("list initial worktrees", func(t *testing.T) {
@@ -128,11 +128,11 @@ func TestEnvCopyWorkflow(t *testing.T) {
 
 	// Create a worktree
 	oldWd, _ := os.Getwd()
-	os.Chdir(repo)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	// Use helper to create worktree with new branch
-	helpers.AddTestWorktree(t, repo, "feature-env")
+	_, _ = helpers.AddTestWorktree(t, repo, "feature-env")
 
 	t.Run("copy env file to worktree", func(t *testing.T) {
 		output := runCommand(t, binPath, "env-copy", "feature-env")
@@ -159,7 +159,7 @@ func TestEnvCopyWorkflow(t *testing.T) {
 	t.Run("env-copy from subdirectory", func(t *testing.T) {
 		// Create subdirectory with .env
 		subdir := filepath.Join(repo, "src", "api")
-		os.MkdirAll(subdir, 0755)
+		_ = os.MkdirAll(subdir, 0755)
 
 		subEnvContent := "SUBDIRECTORY_ENV=true\n"
 		subEnvPath := filepath.Join(subdir, ".env")
@@ -168,7 +168,7 @@ func TestEnvCopyWorkflow(t *testing.T) {
 		}
 
 		// Change to subdirectory
-		os.Chdir(subdir)
+		_ = os.Chdir(subdir)
 
 		_ = runCommand(t, binPath, "env-copy", "feature-env")
 
@@ -200,8 +200,8 @@ func TestProjectCommands(t *testing.T) {
 
 	// Initialize project
 	oldWd, _ := os.Getwd()
-	os.Chdir(repo)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	t.Run("initialize project", func(t *testing.T) {
 		_ = runCommand(t, binPath, "project", "init", "testproject")
@@ -236,8 +236,8 @@ commands:
 		}
 
 		// Create the target directories
-		os.MkdirAll(filepath.Join(repo, "services", "api"), 0755)
-		os.MkdirAll(filepath.Join(repo, "docs"), 0755)
+		_ = os.MkdirAll(filepath.Join(repo, "services", "api"), 0755)
+		_ = os.MkdirAll(filepath.Join(repo, "docs"), 0755)
 
 		// Test custom navigation command
 		output := runCommand(t, binPath, "api")
@@ -277,8 +277,8 @@ func TestErrorHandling(t *testing.T) {
 			setup: func() func() {
 				oldWd, _ := os.Getwd()
 				tmpDir := t.TempDir()
-				os.Chdir(tmpDir)
-				return func() { os.Chdir(oldWd) }
+				_ = os.Chdir(tmpDir)
+				return func() { _ = os.Chdir(oldWd) }
 			},
 		},
 		{
@@ -289,9 +289,9 @@ func TestErrorHandling(t *testing.T) {
 			setup: func() func() {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -304,9 +304,9 @@ func TestErrorHandling(t *testing.T) {
 			setup: func() func() {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},

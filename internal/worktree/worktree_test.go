@@ -23,9 +23,9 @@ func TestGetRepoRoot(t *testing.T) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				// Change to repo directory
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -47,9 +47,9 @@ func TestGetRepoRoot(t *testing.T) {
 				_ = os.MkdirAll(subdir, 0755)
 
 				oldWd, _ := os.Getwd()
-				os.Chdir(subdir)
+				_ = os.Chdir(subdir)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -71,9 +71,9 @@ func TestGetRepoRoot(t *testing.T) {
 					t.Fatal(err)
 				}
 				oldWd, _ := os.Getwd()
-				os.Chdir(tempDir)
+				_ = os.Chdir(tempDir)
 				return tempDir, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					os.RemoveAll(tempDir)
 				}
 			},
@@ -112,9 +112,9 @@ func TestGetWorktreeBase(t *testing.T) {
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -136,9 +136,9 @@ func TestGetWorktreeBase(t *testing.T) {
 				tempDir, _ := os.MkdirTemp("", "test-repo-with-dash-*")
 				_, _, _ = helpers.RunCommand(t, "git", "-C", tempDir, "init")
 				oldWd, _ := os.Getwd()
-				os.Chdir(tempDir)
+				_ = os.Chdir(tempDir)
 				return tempDir, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					os.RemoveAll(tempDir)
 				}
 			},
@@ -187,9 +187,9 @@ func TestParseWorktrees(t *testing.T) {
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -204,13 +204,13 @@ func TestParseWorktrees(t *testing.T) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 
 				// Create additional worktrees
-				helpers.AddTestWorktree(t, repo, "feature-1")
-				helpers.AddTestWorktree(t, repo, "feature-2")
+				_, _ = helpers.AddTestWorktree(t, repo, "feature-1")
+				_, _ = helpers.AddTestWorktree(t, repo, "feature-2")
 
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -240,9 +240,9 @@ func TestParseWorktrees(t *testing.T) {
 				}
 
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -299,13 +299,13 @@ func TestList(t *testing.T) {
 			name: "list with multiple worktrees",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				helpers.AddTestWorktree(t, repo, "feature-1")
-				helpers.AddTestWorktree(t, repo, "bugfix-2")
+				_, _ = helpers.AddTestWorktree(t, repo, "feature-1")
+				_, _ = helpers.AddTestWorktree(t, repo, "bugfix-2")
 
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -327,9 +327,9 @@ func TestList(t *testing.T) {
 				// Create a repo but we can't have zero worktrees, so this is hypothetical
 				repo, cleanup := helpers.CreateTestRepo(t)
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -380,13 +380,13 @@ func TestGo(t *testing.T) {
 			name: "go by index",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				helpers.AddTestWorktree(t, repo, "feature-1")
-				helpers.AddTestWorktree(t, repo, "feature-2")
+				_, _ = helpers.AddTestWorktree(t, repo, "feature-1")
+				_, _ = helpers.AddTestWorktree(t, repo, "feature-2")
 
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -403,12 +403,12 @@ func TestGo(t *testing.T) {
 			name: "go by branch name",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				helpers.AddTestWorktree(t, repo, "feature-1")
+				_, _ = helpers.AddTestWorktree(t, repo, "feature-1")
 
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -425,9 +425,9 @@ func TestGo(t *testing.T) {
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -439,9 +439,9 @@ func TestGo(t *testing.T) {
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
@@ -452,12 +452,12 @@ func TestGo(t *testing.T) {
 			name: "go to main",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				helpers.AddTestWorktree(t, repo, "feature-1")
+				_, _ = helpers.AddTestWorktree(t, repo, "feature-1")
 
 				oldWd, _ := os.Getwd()
-				os.Chdir(repo)
+				_ = os.Chdir(repo)
 				return repo, func() {
-					os.Chdir(oldWd)
+					_ = os.Chdir(oldWd)
 					cleanup()
 				}
 			},
