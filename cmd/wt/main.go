@@ -19,6 +19,11 @@ var (
 	date    = "unknown"
 )
 
+// Command constants
+const (
+	shellInitCmd = "shell-init"
+)
+
 const shellWrapper = `# Shell function to handle CD: and EXEC: prefixes
 wt() {
   output=$("${WT_BIN:-wt-bin}" "$@" 2>&1)
@@ -82,7 +87,7 @@ func initializeConfig() *config.Manager {
 }
 
 func loadProjectConfig(configMgr *config.Manager, cmd string) {
-	if cmd != "shell-init" {
+	if cmd != shellInitCmd {
 		cwd, _ := os.Getwd()
 		gitRemote, _ := worktree.GetGitRemote()
 		_ = configMgr.LoadProject(cwd, gitRemote)
@@ -91,7 +96,7 @@ func loadProjectConfig(configMgr *config.Manager, cmd string) {
 
 func runCommand(cmd string, args []string, configMgr *config.Manager) {
 	switch cmd {
-	case "shell-init":
+	case shellInitCmd:
 		fmt.Print(shellWrapper)
 	case "list":
 		handleListCommand()
@@ -451,7 +456,7 @@ Setup commands:
                       Options: --check, --force
 
 Other commands:
-  shell-init          Output shell initialization code
+  ` + shellInitCmd + `          Output shell initialization code
   version             Show version information`
 }
 
