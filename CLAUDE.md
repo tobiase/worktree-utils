@@ -28,8 +28,17 @@ make install-local
 # Install to ~/.local/bin
 make install
 
-# Run tests (none exist yet)
+# Run tests
 make test
+
+# Run the same tests as GitHub Actions
+make test-ci
+
+# Run linting (auto-installs golangci-lint if needed)
+make lint
+
+# Install golangci-lint separately
+make install-golangci-lint
 
 # Build for all platforms
 make build-all

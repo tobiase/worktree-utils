@@ -1,4 +1,4 @@
-.PHONY: build install install-local test test-ci clean
+.PHONY: build install install-local test test-ci clean lint install-golangci-lint
 
 # Build variables
 BINARY_NAME=wt-bin
@@ -48,9 +48,23 @@ test-ci:
 	go test ./...
 	@echo "✅ All CI tests passed!"
 
+# Install golangci-lint
+install-golangci-lint:
+	@if ! which golangci-lint > /dev/null && ! test -f $(shell go env GOPATH)/bin/golangci-lint; then \
+		echo "Installing golangci-lint v1.64.2..."; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.64.2; \
+		echo "✅ golangci-lint installed to $(shell go env GOPATH)/bin/golangci-lint"; \
+	else \
+		echo "✅ golangci-lint already installed"; \
+	fi
+
 # Run linting
-lint:
-	golangci-lint run
+lint: install-golangci-lint
+	@if which golangci-lint > /dev/null; then \
+		golangci-lint run; \
+	else \
+		$(shell go env GOPATH)/bin/golangci-lint run; \
+	fi
 
 # Setup pre-commit hooks
 setup-hooks:
