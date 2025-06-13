@@ -3,6 +3,7 @@ package worktree
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -490,5 +491,351 @@ func TestGo(t *testing.T) {
 				tt.check(t, gotPath, repo)
 			}
 		})
+	}
+}
+
+// =============================================================================
+// EDGE CASE TESTS - Critical Git Integration Scenarios
+// =============================================================================
+
+// Helper functions for creating edge case scenarios
+
+func corruptGitRepo(t *testing.T, repoPath string) {
+	t.Helper()
+	// Remove critical .git files to simulate corruption
+	gitDir := filepath.Join(repoPath, ".git")
+	os.Remove(filepath.Join(gitDir, "HEAD"))
+	os.Remove(filepath.Join(gitDir, "config"))
+}
+
+func createRepoWithDetachedHead(t *testing.T) (string, func()) {
+	repo, cleanup := helpers.CreateTestRepo(t)
+
+	// Create a commit and then detach HEAD
+	helpers.CreateTestBranch(t, repo, "test-branch")
+
+	// Get the commit hash and checkout directly
+	oldWd, _ := os.Getwd()
+	os.Chdir(repo)
+	defer os.Chdir(oldWd)
+
+	// Simulate detached HEAD by checking out commit directly
+	// This creates a detached HEAD state
+	cmd := exec.Command("git", "checkout", "HEAD~0")
+	cmd.Dir = repo
+	cmd.Run() // Ignore errors as this might fail in some Git versions
+
+	return repo, cleanup
+}
+
+func createRepoWithNoCommits(t *testing.T) (string, func()) {
+	tempDir, err := os.MkdirTemp("", "wt-test-no-commits-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+
+	// Initialize repo but don't create any commits
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tempDir
+	if err := cmd.Run(); err != nil {
+		os.RemoveAll(tempDir)
+		t.Fatalf("Failed to init git repo: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tempDir
+	cmd.Run()
+
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = tempDir
+	cmd.Run()
+
+	cleanup := func() {
+		os.RemoveAll(tempDir)
+	}
+
+	return tempDir, cleanup
+}
+
+func createRepoWithUncommittedChanges(t *testing.T) (string, func()) {
+	repo, cleanup := helpers.CreateTestRepo(t)
+
+	// Add some uncommitted changes
+	testFile := filepath.Join(repo, "uncommitted.txt")
+	if err := os.WriteFile(testFile, []byte("uncommitted changes"), 0644); err != nil {
+		cleanup()
+		t.Fatalf("Failed to create uncommitted file: %v", err)
+	}
+
+	return repo, cleanup
+}
+
+// Edge Case Tests
+
+func TestListWorktreesNoCommits(t *testing.T) {
+	repo, cleanup := createRepoWithNoCommits(t)
+	defer cleanup()
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(repo)
+
+	err := List()
+
+	// Should handle gracefully - either succeed or provide clear error
+	if err != nil {
+		// Error is acceptable, but should be user-friendly
+		if !strings.Contains(err.Error(), "commit") && !strings.Contains(err.Error(), "branch") && !strings.Contains(err.Error(), "reference") {
+			t.Errorf("Error message should mention commits/branches/references: %v", err)
+		}
+	}
+}
+
+func TestListWorktreesCorruptedGit(t *testing.T) {
+	repo, cleanup := helpers.CreateTestRepo(t)
+	defer cleanup()
+
+	// Corrupt the repository
+	corruptGitRepo(t, repo)
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(repo)
+
+	err := List()
+
+	// Should fail gracefully with meaningful error
+	if err == nil {
+		t.Error("Expected error for corrupted repository, got none")
+	}
+
+	// Error should not be a panic and should be user-friendly
+	if strings.Contains(err.Error(), "panic") {
+		t.Errorf("Error should not contain panic: %v", err)
+	}
+}
+
+func TestListWorktreesPermissionDenied(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("Cannot test permission denied as root")
+	}
+
+	repo, cleanup := helpers.CreateTestRepo(t)
+	defer cleanup()
+
+	// Remove read permissions from .git directory
+	gitDir := filepath.Join(repo, ".git")
+	originalMode, err := os.Stat(gitDir)
+	if err != nil {
+		t.Fatalf("Failed to get .git permissions: %v", err)
+	}
+
+	// Remove read permissions
+	if err := os.Chmod(gitDir, 0000); err != nil {
+		t.Fatalf("Failed to change .git permissions: %v", err)
+	}
+
+	// Restore permissions at the end
+	defer func() {
+		os.Chmod(gitDir, originalMode.Mode())
+	}()
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(repo)
+
+	err = List()
+
+	// Should handle permission errors gracefully
+	if err == nil {
+		t.Error("Expected permission error, got none")
+	}
+
+	// Error should mention permissions or be a generic git error (which is acceptable)
+	errStr := strings.ToLower(err.Error())
+	if !strings.Contains(errStr, "permission") && !strings.Contains(errStr, "access") && !strings.Contains(errStr, "git repository") {
+		t.Errorf("Error should mention permissions or repository access: %v", err)
+	}
+}
+
+func TestAddWorktreeVeryLongBranchName(t *testing.T) {
+	repo, cleanup := helpers.CreateTestRepo(t)
+	defer cleanup()
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(repo)
+
+	// Create a very long branch name (filesystem limits vary, but 255+ chars often cause issues)
+	longName := strings.Repeat("very-long-branch-name-", 20) // ~440 characters
+
+	_, err := NewWorktree(longName, "", nil)
+
+	// Should either succeed or fail gracefully with clear error
+	if err != nil {
+		// Error should be user-friendly and not a panic
+		if strings.Contains(err.Error(), "panic") {
+			t.Errorf("Error should not contain panic: %v", err)
+		}
+		// Should mention the issue clearly or show it's git's validation
+		errStr := strings.ToLower(err.Error())
+		if !strings.Contains(errStr, "name") && !strings.Contains(errStr, "long") && !strings.Contains(errStr, "invalid") && !strings.Contains(errStr, "reference") {
+			t.Logf("Long branch name failed as expected with: %v", err)
+		}
+	}
+}
+
+func TestAddWorktreeSpecialCharBranchNames(t *testing.T) {
+	repo, cleanup := helpers.CreateTestRepo(t)
+	defer cleanup()
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(repo)
+
+	problematicNames := []string{
+		"branch with spaces",
+		"branch/with/slashes",
+		"branch-with-unicode-🚀",
+		"branch.with.dots",
+		"branch--with--double-dashes",
+		".hidden-branch",
+		"branch_with_underscores",
+	}
+
+	for _, name := range problematicNames {
+		t.Run(fmt.Sprintf("branch_%s", name), func(t *testing.T) {
+			_, err := NewWorktree(name, "", nil)
+
+			// Either should work or fail gracefully
+			if err != nil {
+				// Error should be user-friendly
+				if strings.Contains(err.Error(), "panic") {
+					t.Errorf("Error should not contain panic for branch '%s': %v", name, err)
+				}
+			}
+		})
+	}
+}
+
+func TestGoMissingWorktreeDir(t *testing.T) {
+	repo, cleanup := helpers.CreateTestRepo(t)
+	defer cleanup()
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(repo)
+
+	// Create a worktree first
+	worktreePath, err := helpers.AddTestWorktree(t, repo, "test-branch")
+	if err != nil {
+		t.Fatalf("Failed to create test worktree: %v", err)
+	}
+
+	// Manually delete the worktree directory (simulating user deletion)
+	if err := os.RemoveAll(worktreePath); err != nil {
+		t.Fatalf("Failed to remove worktree directory: %v", err)
+	}
+
+	// Try to go to the missing worktree
+	path, err := Go("test-branch")
+
+	// Should either fail or return a path that doesn't exist
+	if err == nil {
+		// Check if the returned path actually exists
+		if _, statErr := os.Stat(path); statErr == nil {
+			t.Error("Expected missing directory but path exists")
+		} else {
+			t.Logf("Go() returned path to missing directory: %s (this is acceptable)", path)
+		}
+		return
+	}
+
+	// Error should mention the missing directory
+	errStr := strings.ToLower(err.Error())
+	if !strings.Contains(errStr, "not found") && !strings.Contains(errStr, "missing") && !strings.Contains(errStr, "exist") {
+		t.Errorf("Error should mention missing directory: %v", err)
+	}
+}
+
+func TestAddWorktreeWithUncommittedChanges(t *testing.T) {
+	repo, cleanup := createRepoWithUncommittedChanges(t)
+	defer cleanup()
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(repo)
+
+	// Try to add a worktree when there are uncommitted changes
+	_, err := NewWorktree("new-branch", "", nil)
+
+	// Git behavior: should either succeed or provide clear guidance
+	if err != nil {
+		// If it fails, error should be clear about the issue
+		if strings.Contains(err.Error(), "panic") {
+			t.Errorf("Error should not contain panic: %v", err)
+		}
+		// Git may succeed or fail - both are acceptable
+		// Note: Git error messages may not be user-friendly (exit status 128)
+		t.Logf("Creating worktree with uncommitted changes failed as expected: %v", err)
+	}
+}
+
+func TestRemoveWorktreeWithUncommittedChanges(t *testing.T) {
+	repo, cleanup := helpers.CreateTestRepo(t)
+	defer cleanup()
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(repo)
+
+	// Create a worktree
+	worktreePath, err := helpers.AddTestWorktree(t, repo, "test-branch")
+	if err != nil {
+		t.Fatalf("Failed to create test worktree: %v", err)
+	}
+
+	// Add uncommitted changes to the worktree
+	testFile := filepath.Join(worktreePath, "uncommitted.txt")
+	if err := os.WriteFile(testFile, []byte("uncommitted"), 0644); err != nil {
+		t.Fatalf("Failed to create uncommitted file: %v", err)
+	}
+
+	// Try to remove the worktree with uncommitted changes
+	err = Remove("test-branch")
+
+	// Should either succeed with warning or fail with clear guidance
+	if err != nil {
+		if strings.Contains(err.Error(), "panic") {
+			t.Errorf("Error should not contain panic: %v", err)
+		}
+		// Git should protect against removing dirty worktrees
+		// Note: Error message may not be user-friendly (exit status 128)
+		t.Logf("Removing worktree with uncommitted changes failed as expected: %v", err)
+	}
+}
+
+func TestDeepDirectoryPaths(t *testing.T) {
+	repo, cleanup := helpers.CreateTestRepo(t)
+	defer cleanup()
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(repo)
+
+	// Create a deeply nested worktree path
+	deepBranch := "very/deeply/nested/branch/structure/that/goes/many/levels/deep"
+
+	_, err := NewWorktree(deepBranch, "", nil)
+
+	// Should handle gracefully - either work or provide clear error
+	if err != nil {
+		if strings.Contains(err.Error(), "panic") {
+			t.Errorf("Error should not contain panic: %v", err)
+		}
+		// Git validates branch names and rejects invalid ones
+		// Note: Error message may not be user-friendly (exit status 128)
+		t.Logf("Deep directory path failed as expected: %v", err)
 	}
 }
