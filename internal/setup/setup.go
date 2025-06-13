@@ -53,7 +53,7 @@ func Setup(currentBinaryPath string) error {
 		return fmt.Errorf("no shell configuration files found")
 	}
 
-	initLine := fmt.Sprintf("[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh")
+	initLine := "[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh"
 
 	for _, configFile := range shellConfigs {
 		if err := addToShellConfig(configFile, initLine); err != nil {
@@ -189,11 +189,7 @@ func copyBinary(source, target string) error {
 	}
 
 	// Make executable
-	if err := os.Chmod(target, 0755); err != nil {
-		return err
-	}
-
-	return nil
+	return os.Chmod(target, 0755)
 }
 
 // detectShellConfigs finds shell configuration files

@@ -168,7 +168,7 @@ func getAssetName() string {
 		arch = "x86_64"
 	}
 
-	return fmt.Sprintf("wt_%s_%s", strings.Title(os), arch)
+	return fmt.Sprintf("wt_%s_%s", strings.ToUpper(os[:1])+os[1:], arch)
 }
 
 // downloadFile downloads a file with progress reporting

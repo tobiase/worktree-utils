@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,22 +16,6 @@ import (
 )
 
 // Create a mock GitHub release response
-func mockReleaseResponse(version string, assets []Asset) *http.Response {
-	release := Release{
-		TagName:     version,
-		Name:        fmt.Sprintf("Release %s", version),
-		Body:        fmt.Sprintf("Changes in %s", version),
-		PublishedAt: time.Now().Format(time.RFC3339),
-		Assets:      assets,
-	}
-
-	body, _ := json.Marshal(release)
-	return &http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(bytes.NewReader(body)),
-		Header:     make(http.Header),
-	}
-}
 
 // Create a test tar.gz archive with a binary
 func createTestArchive(t *testing.T, binaryName string, content []byte) []byte {

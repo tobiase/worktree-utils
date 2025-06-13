@@ -51,7 +51,6 @@ type Config struct {
 // Manager handles configuration loading and project detection
 type Manager struct {
 	configDir      string
-	globalConfig   *Config
 	currentProject *ProjectConfig
 }
 

@@ -137,17 +137,17 @@ func CopyEnvFile(targetBranch string, recursive bool) error {
 	if recursive {
 		// Copy all .env files recursively
 		return copyEnvFilesRecursive(currentDir, targetDir)
-	} else {
-		// Copy single .env file
-		sourceEnv := filepath.Join(currentDir, ".env")
-		targetEnv := filepath.Join(targetDir, ".env")
-
-		if _, err := os.Stat(sourceEnv); os.IsNotExist(err) {
-			return fmt.Errorf("no .env file found in current directory")
-		}
-
-		return copyFile(sourceEnv, targetEnv)
 	}
+
+	// Copy single .env file
+	sourceEnv := filepath.Join(currentDir, ".env")
+	targetEnv := filepath.Join(targetDir, ".env")
+
+	if _, err := os.Stat(sourceEnv); os.IsNotExist(err) {
+		return fmt.Errorf("no .env file found in current directory")
+	}
+
+	return copyFile(sourceEnv, targetEnv)
 }
 
 // copyFile copies a single file preserving permissions
