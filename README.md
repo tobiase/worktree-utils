@@ -1,5 +1,6 @@
 # wt - Git Worktree Manager
 
+![Tests](https://github.com/tobiase/worktree-utils/workflows/Tests/badge.svg)
 ![contributions not accepted](https://img.shields.io/badge/contributions-not%20accepted-red.svg)
 
 A fast, project-aware Git worktree manager that simplifies working with multiple branches.
