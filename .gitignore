@@ -5,6 +5,7 @@
 *.so
 *.dylib
 wt-bin
+wt
 
 # Test binary, built with `go test -c`
 *.test
