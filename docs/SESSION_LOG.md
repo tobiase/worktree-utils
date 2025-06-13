@@ -9,6 +9,43 @@ This document tracks work completed during each development session to enable se
 
 ---
 
+## 2025-06-13 - Fix GitHub Actions Test Failures
+
+### Context
+GitHub Actions tests were failing due to branch name inconsistencies. Tests expected "main" but Git repositories were being created with "master" as the default branch.
+
+### Work Completed
+1. **Root Cause Analysis:**
+   - Identified that test repositories were using "master" instead of "main"
+   - Multiple test failures across worktree package and integration tests
+   - Error: "fatal: invalid reference: main" when trying to add existing branch
+
+2. **Test Repository Fix:**
+   - Updated `test/helpers/git.go` to use `--initial-branch=main` for repository creation
+   - Applied fix to both `CreateTestRepo()` and `CreateBareRepo()` functions
+   - Ensures consistent branch naming across all test scenarios
+
+3. **Verification:**
+   - All tests now pass locally: `make test` ✅
+   - Full CI pipeline passes: `make test-ci` ✅
+   - Committed fix with proper conventional commit message
+
+### Technical Details
+- Changed `git init` to `git init --initial-branch=main`
+- Changed `git init --bare` to `git init --bare --initial-branch=main`
+- This ensures Git creates "main" instead of "master" regardless of system configuration
+
+### Outcome
+- GitHub Actions tests should now pass consistently
+- All local tests passing (worktree, integration, and unit tests)
+- Resolved the "add_existing_branch" test failure that expected "already" error message
+
+### Next Steps
+- Monitor GitHub Actions to confirm tests pass in CI environment
+- Continue with any remaining development tasks
+
+---
+
 ## 2025-06-13 - Pre-commit Setup
 
 ### Context
