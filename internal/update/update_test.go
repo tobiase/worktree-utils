@@ -99,7 +99,7 @@ func TestCheckForUpdate(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(release)
+		_ = json.NewEncoder(w).Encode(release)
 	}))
 	defer server.Close()
 
@@ -187,7 +187,7 @@ func TestCheckForUpdateErrors(t *testing.T) {
 			name: "invalid JSON",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(200)
-				w.Write([]byte("invalid json"))
+				_, _ = w.Write([]byte("invalid json"))
 			},
 			wantError: "failed to parse release info",
 		},
@@ -302,7 +302,7 @@ func TestDownloadAndInstall(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "test.tar.gz") {
 			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(archive)))
-			w.Write(archive)
+			_, _ = w.Write(archive)
 		} else {
 			w.WriteHeader(404)
 		}
@@ -426,7 +426,7 @@ func TestExtractAndInstall(t *testing.T) {
 			archiveFunc: func(t *testing.T) string {
 				archive := createTestArchive(t, "wt-bin", []byte("new binary"))
 				tempFile := filepath.Join(t.TempDir(), "archive.tar.gz")
-				os.WriteFile(tempFile, archive, 0644)
+				_ = os.WriteFile(tempFile, archive, 0644)
 				return tempFile
 			},
 		},
@@ -435,7 +435,7 @@ func TestExtractAndInstall(t *testing.T) {
 			archiveFunc: func(t *testing.T) string {
 				archive := createTestArchive(t, "wrong-name", []byte("content"))
 				tempFile := filepath.Join(t.TempDir(), "archive.tar.gz")
-				os.WriteFile(tempFile, archive, 0644)
+				_ = os.WriteFile(tempFile, archive, 0644)
 				return tempFile
 			},
 			wantError: true,
@@ -445,7 +445,7 @@ func TestExtractAndInstall(t *testing.T) {
 			name: "corrupt archive",
 			archiveFunc: func(t *testing.T) string {
 				tempFile := filepath.Join(t.TempDir(), "corrupt.tar.gz")
-				os.WriteFile(tempFile, []byte("not a tar.gz"), 0644)
+				_ = os.WriteFile(tempFile, []byte("not a tar.gz"), 0644)
 				return tempFile
 			},
 			wantError: true,
@@ -681,13 +681,13 @@ func TestDownloadFile(t *testing.T) {
 		switch r.URL.Path {
 		case "/success":
 			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(testContent)))
-			w.Write(testContent)
+			_, _ = w.Write(testContent)
 		case "/error":
 			w.WriteHeader(500)
 		case "/slow":
 			// Simulate slow download
 			time.Sleep(100 * time.Millisecond)
-			w.Write(testContent)
+			_, _ = w.Write(testContent)
 		default:
 			w.WriteHeader(404)
 		}

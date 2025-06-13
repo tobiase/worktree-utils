@@ -22,7 +22,7 @@ func TestShowUsage(t *testing.T) {
 	os.Stderr = oldStderr
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	output := buf.String()
 
 	// Check for key elements in usage

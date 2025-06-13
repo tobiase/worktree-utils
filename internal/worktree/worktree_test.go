@@ -44,7 +44,7 @@ func TestGetRepoRoot(t *testing.T) {
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				subdir := filepath.Join(repo, "subdir")
-				os.MkdirAll(subdir, 0755)
+				_ = os.MkdirAll(subdir, 0755)
 
 				oldWd, _ := os.Getwd()
 				os.Chdir(subdir)
@@ -134,7 +134,7 @@ func TestGetWorktreeBase(t *testing.T) {
 			name: "repository with special characters",
 			setup: func() (string, func()) {
 				tempDir, _ := os.MkdirTemp("", "test-repo-with-dash-*")
-				helpers.RunCommand(t, "git", "-C", tempDir, "init")
+				_, _, _ = helpers.RunCommand(t, "git", "-C", tempDir, "init")
 				oldWd, _ := os.Getwd()
 				os.Chdir(tempDir)
 				return tempDir, func() {
@@ -232,7 +232,7 @@ func TestParseWorktrees(t *testing.T) {
 
 				// Create worktree at specific commit (detached HEAD)
 				worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
-				os.MkdirAll(worktreeBase, 0755)
+				_ = os.MkdirAll(worktreeBase, 0755)
 				worktreePath := filepath.Join(worktreeBase, "detached")
 				_, _, err := helpers.RunCommand(t, "git", "-C", repo, "worktree", "add", "--detach", worktreePath, commitHash)
 				if err != nil {
