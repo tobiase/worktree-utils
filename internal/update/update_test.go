@@ -275,23 +275,27 @@ func TestGetAssetName(t *testing.T) {
 }
 
 func TestDownloadAndInstall(t *testing.T) {
-	// Create a test binary content
+	// Create test archives for both binary names
 	testBinaryContent := []byte("#!/bin/sh\necho 'test binary v2.0.0'")
-
-	// Create test archive
-	archive := createTestArchive(t, "wt-bin", testBinaryContent)
+	archiveWtBin := createTestArchive(t, "wt-bin", testBinaryContent)
+	archiveWorktreeUtils := createTestArchive(t, "worktree-utils", testBinaryContent)
 
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "test.tar.gz") {
-			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(archive)))
-			_, _ = w.Write(archive)
-		} else {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "test-wt-bin.tar.gz"):
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(archiveWtBin)))
+			_, _ = w.Write(archiveWtBin)
+		case strings.HasSuffix(r.URL.Path, "test-worktree-utils.tar.gz"):
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(archiveWorktreeUtils)))
+			_, _ = w.Write(archiveWorktreeUtils)
+		default:
 			w.WriteHeader(404)
 		}
 	}))
 	defer server.Close()
 
+	assetName := getAssetName()
 	tests := []struct {
 		name      string
 		release   *Release
@@ -299,14 +303,42 @@ func TestDownloadAndInstall(t *testing.T) {
 		errorMsg  string
 	}{
 		{
-			name: "successful install",
+			name: "successful install with exact match",
 			release: &Release{
 				TagName: "v2.0.0",
 				Assets: []Asset{
 					{
-						Name:               fmt.Sprintf("%s.tar.gz", getAssetName()),
-						BrowserDownloadURL: server.URL + "/download/test.tar.gz",
-						Size:               int64(len(archive)),
+						Name:               fmt.Sprintf("%s.tar.gz", assetName),
+						BrowserDownloadURL: server.URL + "/download/test-wt-bin.tar.gz",
+						Size:               int64(len(archiveWtBin)),
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "successful install with versioned asset name",
+			release: &Release{
+				TagName: "v2.0.0",
+				Assets: []Asset{
+					{
+						Name:               fmt.Sprintf("wt_2.0.0_%s.tar.gz", assetName[3:]), // Remove "wt_" prefix and add version
+						BrowserDownloadURL: server.URL + "/download/test-wt-bin.tar.gz",
+						Size:               int64(len(archiveWtBin)),
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "successful install with worktree-utils binary name",
+			release: &Release{
+				TagName: "v2.0.0",
+				Assets: []Asset{
+					{
+						Name:               fmt.Sprintf("%s.tar.gz", assetName),
+						BrowserDownloadURL: server.URL + "/download/test-worktree-utils.tar.gz",
+						Size:               int64(len(archiveWorktreeUtils)),
 					},
 				},
 			},
@@ -333,7 +365,7 @@ func TestDownloadAndInstall(t *testing.T) {
 				TagName: "v2.0.0",
 				Assets: []Asset{
 					{
-						Name:               fmt.Sprintf("%s.tar.gz", getAssetName()),
+						Name:               fmt.Sprintf("%s.tar.gz", assetName),
 						BrowserDownloadURL: server.URL + "/nonexistent.tar.gz",
 						Size:               1024,
 					},
@@ -392,6 +424,120 @@ func TestDownloadAndInstall(t *testing.T) {
 				if progressCalls == 0 {
 					t.Error("Progress callback was not called")
 				}
+			}
+		})
+	}
+}
+
+func TestAssetNameMatching(t *testing.T) {
+	tests := []struct {
+		name        string
+		assetName   string
+		targetName  string
+		shouldMatch bool
+	}{
+		{
+			name:        "exact match",
+			assetName:   "wt_Darwin_all",
+			targetName:  "wt_Darwin_all",
+			shouldMatch: true,
+		},
+		{
+			name:        "exact match with tar.gz",
+			assetName:   "wt_Darwin_all.tar.gz",
+			targetName:  "wt_Darwin_all",
+			shouldMatch: true,
+		},
+		{
+			name:        "versioned asset name",
+			assetName:   "wt_0.4.0_Darwin_all.tar.gz",
+			targetName:  "wt_Darwin_all",
+			shouldMatch: true,
+		},
+		{
+			name:        "different version",
+			assetName:   "wt_1.2.3_Darwin_all.tar.gz",
+			targetName:  "wt_Darwin_all",
+			shouldMatch: true,
+		},
+		{
+			name:        "linux asset",
+			assetName:   "wt_0.4.0_Linux_x86_64.tar.gz",
+			targetName:  "wt_Linux_x86_64",
+			shouldMatch: true,
+		},
+		{
+			name:        "wrong platform",
+			assetName:   "wt_0.4.0_Linux_x86_64.tar.gz",
+			targetName:  "wt_Darwin_all",
+			shouldMatch: false,
+		},
+		{
+			name:        "completely different asset",
+			assetName:   "checksums.txt",
+			targetName:  "wt_Darwin_all",
+			shouldMatch: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate the matching logic from DownloadAndInstall
+			matched := tt.assetName == tt.targetName ||
+				tt.assetName == tt.targetName+".tar.gz" ||
+				strings.HasSuffix(tt.assetName, "_"+tt.targetName[3:]+".tar.gz")
+
+			if matched != tt.shouldMatch {
+				t.Errorf("Asset matching failed: asset=%s, target=%s, expected=%v, got=%v",
+					tt.assetName, tt.targetName, tt.shouldMatch, matched)
+			}
+		})
+	}
+}
+
+func TestBinaryNameRecognition(t *testing.T) {
+	tests := []struct {
+		name     string
+		filename string
+		expected bool
+	}{
+		{
+			name:     "wt-bin exact match",
+			filename: "wt-bin",
+			expected: true,
+		},
+		{
+			name:     "worktree-utils exact match",
+			filename: "worktree-utils",
+			expected: true,
+		},
+		{
+			name:     "wt-bin with path",
+			filename: "some/path/wt-bin",
+			expected: true,
+		},
+		{
+			name:     "worktree-utils with path",
+			filename: "directory/worktree-utils",
+			expected: true,
+		},
+		{
+			name:     "wrong binary name",
+			filename: "some-other-binary",
+			expected: false,
+		},
+		{
+			name:     "README file",
+			filename: "README.md",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isBinaryFile(tt.filename)
+			if result != tt.expected {
+				t.Errorf("isBinaryFile(%s) = %v, expected %v", tt.filename, result, tt.expected)
 			}
 		})
 	}
