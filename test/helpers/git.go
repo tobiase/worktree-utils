@@ -26,8 +26,8 @@ func CreateTestRepo(t *testing.T) (repoPath string, cleanup func()) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	// Initialize git repo with main as default branch
-	if err := runGitCommand(tempDir, "init", "--initial-branch=main"); err != nil {
+	// Initialize git repo
+	if err := runGitCommand(tempDir, "init"); err != nil {
 		os.RemoveAll(tempDir)
 		t.Fatalf("Failed to init git repo: %v", err)
 	}
@@ -58,6 +58,12 @@ func CreateTestRepo(t *testing.T) (repoPath string, cleanup func()) {
 	if err := runGitCommand(tempDir, "commit", "-m", "Initial commit"); err != nil {
 		os.RemoveAll(tempDir)
 		t.Fatalf("Failed to create initial commit: %v", err)
+	}
+
+	// Ensure we're on main branch (rename if needed for compatibility)
+	if err := runGitCommand(tempDir, "branch", "-M", "main"); err != nil {
+		os.RemoveAll(tempDir)
+		t.Fatalf("Failed to rename branch to main: %v", err)
 	}
 
 	cleanup = func() {
@@ -102,7 +108,7 @@ func CreateBareRepo(t *testing.T) (repoPath string, cleanup func()) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	if err := runGitCommand(tempDir, "init", "--bare", "--initial-branch=main"); err != nil {
+	if err := runGitCommand(tempDir, "init", "--bare"); err != nil {
 		os.RemoveAll(tempDir)
 		t.Fatalf("Failed to init bare repo: %v", err)
 	}
