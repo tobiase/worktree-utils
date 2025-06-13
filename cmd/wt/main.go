@@ -111,6 +111,8 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 		handleVersionCommand()
 	case "update":
 		handleUpdateCommand(args)
+	case "help":
+		showUsage()
 	default:
 		handleCustomCommand(cmd, configMgr)
 	}
