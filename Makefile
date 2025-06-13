@@ -38,15 +38,17 @@ test-coverage:
 
 # Run the same tests that GitHub Actions runs
 test-ci:
-	@echo "Running the same tests as GitHub Actions..."
-	@echo "1. Building binary..."
+	@echo "🚀 Running exactly what GitHub Actions runs..."
+	@echo "1. Running linting..."
+	make lint
+	@echo "2. Running tests with race detection and coverage..."
+	go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+	@echo "3. Building binary..."
 	make build
-	@echo "2. Testing basic commands..."
+	@echo "4. Testing binary functionality..."
 	./$(BINARY_NAME) version
 	./$(BINARY_NAME) help
-	@echo "3. Running full test suite..."
-	go test ./...
-	@echo "✅ All CI tests passed!"
+	@echo "✅ All GitHub Actions checks passed! Safe to push."
 
 # Install golangci-lint
 install-golangci-lint:
