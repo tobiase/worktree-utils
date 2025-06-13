@@ -14,6 +14,8 @@ After completing work, update SESSION_LOG.md with:
 - Key decisions and rationale
 - Next steps for future sessions
 
+When adding session log entries, use `date +%Y-%m-%d` to get the current date in YYYY-MM-DD format.
+
 ## Development Commands
 
 ```bash

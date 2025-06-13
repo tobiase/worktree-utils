@@ -9,6 +9,167 @@ This document tracks work completed during each development session to enable se
 
 ---
 
+## 2025-06-13 - Setup and Update Package Tests
+
+### Context
+Continuing from locale handling fix, implemented comprehensive tests for setup and update packages as part of the testing infrastructure plan.
+
+### Work Completed
+1. **Setup Package Tests (88.2% coverage):**
+   - Created `internal/setup/setup_test.go` with comprehensive test suite
+   - Implemented test environment helpers for mocking file system operations
+   - Tested all main functions: Setup(), Uninstall(), Check()
+   - Tested helper functions: copyBinary(), detectShellConfigs(), addToShellConfig(), hasWtInit(), isInPath()
+   - Edge cases covered:
+     - Multiple shell configurations
+     - Missing shell configs
+     - Binary copy failures
+     - PATH warnings
+     - Existing installations
+
+2. **Update Package Tests (89.6% coverage):**
+   - Created `internal/update/update_test.go` with comprehensive test suite
+   - Made update package more testable by converting constants to variables
+   - Added wrappers for os.Executable and platform detection
+   - Tested GitHub API interactions with mock servers
+   - Tested download and installation workflows
+   - Tested archive extraction and binary replacement
+   - Edge cases covered:
+     - Network timeouts
+     - Invalid API responses
+     - Corrupt archives
+     - Missing assets
+     - Platform-specific asset selection
+
+3. **Test Infrastructure Improvements:**
+   - Created mock HTTP servers for API testing
+   - Implemented tar.gz archive creation for testing
+   - Added progress tracking tests
+   - Tested checksum calculations
+
+### Key Decisions
+- Used table-driven tests throughout for clarity
+- Created test doubles instead of mocking frameworks
+- Made minimal changes to production code for testability
+- Focused on behavior testing over implementation details
+
+### Next Steps
+- Move to Phase 2: Shell completion implementation
+- Add detailed help command
+- Consider interactive mode for branch selection
+
+---
+
+## 2025-06-13 - Locale Handling Fix
+
+### Context
+User asked about LANG=C prefix requirement for tests and requested a permanent fix to avoid manual locale setting.
+
+### Work Completed
+1. **Fixed locale handling in tests:**
+   - Created `test/integration/common_test.go` with shared test helpers
+   - Added LANG=C environment setting to all command executions in tests
+   - Updated all exec.Command calls to include consistent locale:
+     - `buildTestBinary()` - Sets LANG=C for go build
+     - `runCommand()` - Sets LANG=C for wt command execution
+     - Git commands in test helpers - Sets LANG=C for git operations
+   - Removed duplicate function definitions across test files
+
+2. **Verified fix works:**
+   - All tests now pass without requiring manual LANG=C prefix
+   - Tests work consistently across different locale settings
+   - No changes required to production code
+
+### Key Decisions
+- Set LANG=C only in test execution, not globally
+- Maintained locale consistency across all test helpers
+- Created common test file to reduce duplication
+- Kept production code unchanged - only test infrastructure modified
+
+### Next Steps
+- Continue with remaining test implementation tasks
+- Add tests for setup and update packages
+
+---
+
+## 2025-06-12 - Test Infrastructure and CLI Improvements
+
+### Context
+User noted unexpected command behavior and suggested creating a test harness before attempting CLI ergonomic improvements. After initial test implementation, continued with integration testing and ergonomic improvements.
+
+### Work Completed
+1. **Created comprehensive test infrastructure:**
+   - Created test helper packages in `test/helpers/`:
+     - `git.go` - Git repository creation and manipulation
+     - `filesystem.go` - File system test utilities  
+     - `command.go` - Command execution mocking and recording
+   
+2. **Implemented unit tests for worktree package:**
+   - Tests for `GetRepoRoot()`, `GetWorktreeBase()` 
+   - Tests for `parseWorktrees()`, `List()`, `Go()`
+   - Tests for `NewWorktree()`, `CopyEnvFile()`
+   - Handle macOS `/private` symlink paths
+   - All tests passing (8 test functions, multiple sub-tests)
+
+3. **Implemented unit tests for config package:**
+   - Tests for `LoadProject()`, `matchesProject()`
+   - Tests for `loadProjectConfig()`, `SaveProjectConfig()`
+   - Tests for `GetCommand()`, `GetVirtualenvConfig()`
+   - Tests for `registerVirtualenvCommands()`
+   - All tests passing (10 test functions)
+
+4. **Created integration tests:**
+   - Shell wrapper tests (`test/integration/shell_test.go`)
+   - Complete workflow tests (`test/integration/workflow_test.go`)
+   - Command alias tests (`test/integration/aliases_test.go`)
+   - Tests CD: and EXEC: prefix handling
+
+5. **Added CLI entry point tests:**
+   - Created `cmd/wt/main_test.go`
+   - Tests for usage output, version formatting
+   - Tests for shell wrapper output
+   - Command line argument parsing tests
+
+6. **Implemented command aliases:**
+   - Added `ls` as alias for `list`
+   - Added `switch` and `s` as aliases for `go`
+   - Updated help text to show aliases
+   - Added tests to verify aliases work correctly
+
+7. **Set up GitHub Actions CI:**
+   - Created `.github/workflows/test.yml` for testing
+   - Multi-OS testing (Ubuntu, macOS)
+   - Coverage reporting with Codecov
+   - Linting with golangci-lint
+   - Added test badge to README
+
+### Key Decisions
+- Started with unit tests before integration tests as recommended in testing plan
+- Used table-driven tests throughout for clarity and maintainability
+- Created comprehensive test helpers to reduce duplication
+- Handled platform-specific issues (macOS symlinks) in tests
+- Implemented aliases as a map for easy extension
+- Chose simple, git-like aliases (ls, switch) for familiarity
+
+### Next Steps
+- [ ] Fix failing integration tests (env-copy, project commands)
+- [ ] Add tests for setup and update packages
+- [ ] Implement shell completion support
+- [ ] Add "help <command>" for detailed help
+- [ ] Consider interactive mode for branch selection
+- [ ] Add performance benchmarks
+
+### Test Coverage Status
+- ✅ `test/helpers` - Complete helper package
+- ✅ `internal/worktree` - Core functionality tested
+- ✅ `internal/config` - Configuration system tested
+- ⬜ `internal/setup` - No tests yet
+- ⬜ `internal/update` - No tests yet
+- ✅ `cmd/wt` - Basic tests implemented
+- ✅ Integration tests - Shell wrapper and workflows tested
+
+---
+
 ## 2025-06-05 - Worktree Base Configuration Fix
 
 ### Context
