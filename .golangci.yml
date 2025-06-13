@@ -6,17 +6,56 @@ linters:
     - gofmt
     - govet
     - errcheck
+    - staticcheck
     - gosimple
     - ineffassign
     - unused
     - misspell
     - goimports
+    - revive
+    - gocyclo
+    - dupl
+    - goconst
+    - gocognit
+    - bodyclose
+    - prealloc
 
 linters-settings:
   gofmt:
     simplify: true
   goimports:
     local-prefixes: github.com/tobiase/worktree-utils
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  gocognit:
+    min-complexity: 20
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unreachable-code
 
 issues:
   exclude-rules:
@@ -28,6 +67,3 @@ issues:
     # Allow global variables in update.go
     - path: internal/update/update.go
       text: "githubAPIURL|httpClient|platformInfo|executablePath"
-
-# Note: golangci-lint v1.55.2 has compatibility issues with Go 1.24
-# This config is kept for future use when compatibility is resolved

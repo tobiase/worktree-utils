@@ -9,6 +9,55 @@ This document tracks work completed during each development session to enable se
 
 ---
 
+## 2025-06-13 - Pre-commit Setup
+
+### Context
+After completing comprehensive tests for setup and update packages, set up pre-commit hooks to ensure code quality.
+
+### Work Completed
+1. **Pre-commit Configuration:**
+   - Created `.pre-commit-config.yaml` with comprehensive checks
+   - Configured hooks for:
+     - Trailing whitespace removal
+     - End-of-file fixing
+     - YAML validation
+     - Go formatting (gofmt)
+     - Go vetting
+     - Go mod tidy
+     - Go build verification
+     - Conventional commit messages
+   - Worked around golangci-lint v1.55.2 compatibility issues with Go 1.24
+
+2. **golangci-lint Configuration:**
+   - Created `.golangci.yml` for future use
+   - Configured linters: gofmt, govet, errcheck, gosimple, ineffassign, unused, misspell, goimports
+   - Added exceptions for test files and update.go global variables
+   - Added note about Go 1.24 compatibility issue
+
+3. **Documentation Updates:**
+   - Updated CONTRIBUTING.md with pre-commit setup instructions
+   - Added Makefile targets: `setup-hooks` and `lint-all`
+
+4. **Code Cleanup:**
+   - Fixed trailing whitespace across entire codebase
+   - Fixed missing newlines at end of files
+   - All files now pass pre-commit checks
+
+### Key Decisions
+- Used pre-commit (Python-based) over lefthook (Go-based) for better ecosystem support
+- Temporarily excluded golangci-lint from pre-commit due to Go 1.24 compatibility
+- Enforced conventional commits with scope requirement
+- Kept golangci-lint config for future use when compatibility improves
+
+### Next Steps
+1. Investigate Go version consistency across local, CI, and releases (user suggestion)
+2. Consider using go.mod version or .go-version file for consistency
+3. Create release v0.4.0 with test improvements
+4. Continue with Phase 2: Shell completion implementation
+5. Implement detailed help command
+
+---
+
 ## 2025-06-13 - Setup and Update Package Tests
 
 ### Context

@@ -16,8 +16,11 @@ repos:
         args: ['--fix=lf']
 
   # Go specific hooks
-  # Note: golangci-lint has compatibility issues with Go 1.24
-  # Using individual linters via local hooks instead
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.64.2
+    hooks:
+      - id: golangci-lint
+        args: ['--timeout=5m']
 
   # Go formatting
   - repo: local
