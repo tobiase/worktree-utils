@@ -112,10 +112,10 @@ func DownloadAndInstall(release *Release, onProgress func(downloaded, total int6
 	assetName := getAssetName()
 	var asset *Asset
 	for _, a := range release.Assets {
-		// Check for exact match, with .tar.gz extension, or with version prefix
+		// Check for exact match, with .tar.gz extension, or with version in the name
 		if a.Name == assetName ||
 			a.Name == assetName+".tar.gz" ||
-			strings.Contains(a.Name, assetName+".tar.gz") {
+			strings.HasSuffix(a.Name, "_"+assetName[3:]+".tar.gz") { // Remove "wt_" prefix and match suffix
 			asset = &a
 			break
 		}
@@ -257,7 +257,8 @@ func extractBinaryFromTar(tr *tar.Reader, exePath string) error {
 }
 
 func isBinaryFile(name string) bool {
-	return name == "wt-bin" || filepath.Base(name) == "wt-bin"
+	base := filepath.Base(name)
+	return base == "wt-bin" || base == "worktree-utils"
 }
 
 func installBinaryFromTar(tr *tar.Reader, exePath string) error {
