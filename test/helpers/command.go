@@ -86,13 +86,13 @@ func CaptureOutput(fn func()) (stdout, stderr string, err error) {
 
 	go func() {
 		var buf bytes.Buffer
-		io.Copy(&buf, rOut)
+		_, _ = io.Copy(&buf, rOut)
 		outChan <- buf.String()
 	}()
 
 	go func() {
 		var buf bytes.Buffer
-		io.Copy(&buf, rErr)
+		_, _ = io.Copy(&buf, rErr)
 		errChan <- buf.String()
 	}()
 

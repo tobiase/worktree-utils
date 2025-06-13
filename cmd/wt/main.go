@@ -75,7 +75,7 @@ func main() {
 	if cmd != "shell-init" {
 		cwd, _ := os.Getwd()
 		gitRemote, _ := worktree.GetGitRemote()
-		configMgr.LoadProject(cwd, gitRemote)
+		_ = configMgr.LoadProject(cwd, gitRemote)
 	}
 
 	switch cmd {
@@ -418,7 +418,7 @@ Other commands:
 	if configMgr, err := config.NewManager(); err == nil {
 		cwd, _ := os.Getwd()
 		gitRemote, _ := worktree.GetGitRemote()
-		configMgr.LoadProject(cwd, gitRemote)
+		_ = configMgr.LoadProject(cwd, gitRemote)
 
 		if project := configMgr.GetCurrentProject(); project != nil {
 			if len(project.Commands) > 0 {

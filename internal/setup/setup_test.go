@@ -245,7 +245,7 @@ func TestSetup(t *testing.T) {
 			w.Close()
 			os.Stdout = oldStdout
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			_, _ = io.Copy(&buf, r)
 			output := buf.String()
 
 			// Check error
@@ -431,7 +431,7 @@ func TestCheck(t *testing.T) {
 			// Make binary executable if it exists
 			binPath := filepath.Join(tt.env.homeDir, ".local", "bin", "wt-bin")
 			if _, err := os.Stat(binPath); err == nil {
-				os.Chmod(binPath, 0755)
+				_ = os.Chmod(binPath, 0755)
 			}
 
 			// Capture output
@@ -814,7 +814,7 @@ func TestCheckBinaryExecutable(t *testing.T) {
 	// We'll create a real binary that can be executed
 	tempDir := t.TempDir()
 	binDir := filepath.Join(tempDir, ".local", "bin")
-	os.MkdirAll(binDir, 0755)
+	_ = os.MkdirAll(binDir, 0755)
 
 	// Create a simple executable script
 	binPath := filepath.Join(binDir, "wt-bin")
