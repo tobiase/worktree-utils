@@ -45,9 +45,9 @@ repos:
         language: system
         pass_filenames: false
 
-      - id: go-test
-        name: go test
-        entry: bash -c 'go test -short ./...'
+      - id: test-ci
+        name: Run CI tests (pre-push)
+        entry: make test-ci
         language: system
         pass_filenames: false
         stages: [push]

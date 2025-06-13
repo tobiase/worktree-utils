@@ -424,7 +424,7 @@ func handleSetupCommand(args []string) {
 }
 
 func showUsage() {
-	fmt.Print(getCoreUsage())
+	fmt.Fprint(os.Stderr, getCoreUsage())
 	printProjectCommands()
 }
 

@@ -1,4 +1,4 @@
-.PHONY: build install install-local test clean
+.PHONY: build install install-local test test-ci clean
 
 # Build variables
 BINARY_NAME=wt-bin
@@ -36,6 +36,18 @@ test-coverage:
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
+# Run the same tests that GitHub Actions runs
+test-ci:
+	@echo "Running the same tests as GitHub Actions..."
+	@echo "1. Building binary..."
+	make build
+	@echo "2. Testing basic commands..."
+	./$(BINARY_NAME) version
+	./$(BINARY_NAME) help
+	@echo "3. Running full test suite..."
+	go test ./...
+	@echo "✅ All CI tests passed!"
+
 # Run linting
 lint:
 	golangci-lint run
@@ -46,6 +58,7 @@ setup-hooks:
 	@which pre-commit > /dev/null || pip install --user pre-commit
 	pre-commit install
 	pre-commit install --hook-type commit-msg
+	pre-commit install --hook-type pre-push
 	@echo "Pre-commit hooks installed successfully!"
 
 # Run pre-commit on all files
