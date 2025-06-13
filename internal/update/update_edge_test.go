@@ -55,11 +55,12 @@ func createRateLimitedServer() *httptest.Server {
 func createCorruptedAssetServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/releases/latest") {
-			// Return valid release info
+			// Return valid release info with current platform asset name
+			assetName := getAssetName() + ".tar.gz"
 			release := `{
 				"tag_name": "v1.0.0",
 				"assets": [{
-					"name": "wt_Darwin_all.tar.gz",
+					"name": "` + assetName + `",
 					"browser_download_url": "` + r.Host + `/download/corrupted.tar.gz",
 					"size": 1024
 				}]
@@ -80,11 +81,12 @@ func createCorruptedAssetServer() *httptest.Server {
 func createInconsistentSizeServer() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/releases/latest") {
-			// Return release with incorrect size
+			// Return release with incorrect size using current platform asset name
+			assetName := getAssetName() + ".tar.gz"
 			release := `{
 				"tag_name": "v1.0.0",
 				"assets": [{
-					"name": "wt_Darwin_all.tar.gz",
+					"name": "` + assetName + `",
 					"browser_download_url": "` + r.Host + `/download/test.tar.gz",
 					"size": 999999
 				}]
@@ -230,12 +232,13 @@ func TestDownloadAndInstallCorruptedArchive(t *testing.T) {
 	server := createCorruptedAssetServer()
 	defer server.Close()
 
-	// Create release with corrupted asset
+	// Create release with corrupted asset using current platform asset name
+	assetName := getAssetName() + ".tar.gz"
 	release := &Release{
 		TagName: "v1.0.0",
 		Assets: []Asset{
 			{
-				Name:               "wt_Darwin_all.tar.gz",
+				Name:               assetName,
 				BrowserDownloadURL: server.URL + "/download/corrupted.tar.gz",
 				Size:               1024,
 			},
@@ -292,12 +295,13 @@ func TestDownloadAndInstallInconsistentSize(t *testing.T) {
 	server := createInconsistentSizeServer()
 	defer server.Close()
 
-	// Create release with wrong size
+	// Create release with wrong size using current platform asset name
+	assetName := getAssetName() + ".tar.gz"
 	release := &Release{
 		TagName: "v1.0.0",
 		Assets: []Asset{
 			{
-				Name:               "wt_Darwin_all.tar.gz",
+				Name:               assetName,
 				BrowserDownloadURL: server.URL + "/download/test.tar.gz",
 				Size:               999999, // Much larger than actual content
 			},
@@ -361,12 +365,13 @@ func TestDownloadAndInstallReadOnlyExecutable(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// Create release
+	// Create release with current platform asset name
+	assetName := getAssetName() + ".tar.gz"
 	release := &Release{
 		TagName: "v1.0.0",
 		Assets: []Asset{
 			{
-				Name:               "wt_Darwin_all.tar.gz",
+				Name:               assetName,
 				BrowserDownloadURL: server.URL + "/test.tar.gz",
 				Size:               int64(len(archive)),
 			},
@@ -415,12 +420,13 @@ func TestDownloadAndInstallExecutableNotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// Create release
+	// Create release with current platform asset name
+	assetName := getAssetName() + ".tar.gz"
 	release := &Release{
 		TagName: "v1.0.0",
 		Assets: []Asset{
 			{
-				Name:               "wt_Darwin_all.tar.gz",
+				Name:               assetName,
 				BrowserDownloadURL: server.URL + "/test.tar.gz",
 				Size:               int64(len(archive)),
 			},
