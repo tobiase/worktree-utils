@@ -153,6 +153,107 @@ gh issue create --title "Title" --body "Content with \`backticks\`"
 2. Test with local binary: `./wt-bin <command>`
 3. For shell integration testing: `export WT_BIN="$PWD/wt-bin" && source <(./wt-bin shell-init)`
 
+## Testing Strategy
+
+### Philosophy: Edge Cases Over Coverage
+
+**Coverage metrics are misleading for CLI tools.** What matters is testing scenarios that could actually break for users. Focus on edge cases where bugs hide and users get frustrated, not on achieving percentage thresholds.
+
+### Critical Edge Case Categories
+
+**Git Repository Edge Cases:**
+- Repositories with no commits yet
+- Detached HEAD states
+- Corrupted .git directories
+- Very long branch names with special characters
+- Repositories with unusual remote configurations
+- Permission issues (read-only repositories)
+- Empty repositories
+- Repositories with broken symlinks
+
+**Worktree Edge Cases:**
+- Worktrees with uncommitted changes
+- Worktrees with merge conflicts
+- Missing worktree directories (deleted manually)
+- Worktrees pointing to non-existent branches
+- Nested worktree scenarios
+- Very deep directory paths
+- Worktrees on different filesystems
+- Case-sensitive vs case-insensitive filesystems
+
+**Config Edge Cases:**
+- Malformed YAML files
+- Missing config directories
+- Circular project path references
+- Projects with broken remote URLs
+- Config files with special characters/unicode
+- Very large config files
+- Permission issues on config files
+- Concurrent config file access
+
+**System Edge Cases:**
+- Network timeouts during updates
+- Disk full scenarios
+- Binary permission issues
+- Shell integration failures
+- Different Git versions (old/new)
+- Unusual $HOME directory setups
+- Different shells (bash, zsh, fish)
+- Systems without required tools
+
+**User Input Edge Cases:**
+- Commands with trailing/leading spaces
+- Branch names that look like options (--help, -v)
+- Very long command lines
+- Special characters in paths/names (unicode, spaces, symbols)
+- Ctrl+C during operations
+- Invalid command combinations
+- Missing required arguments
+
+### Test Implementation Guidelines
+
+1. **Start with what breaks in practice** - Test scenarios users actually encounter
+2. **Test failure modes** - What happens when things go wrong?
+3. **Test boundaries** - Empty inputs, very large inputs, edge values
+4. **Test integration points** - Where our code meets Git, filesystem, network
+5. **Test recovery** - Can users recover from error states?
+
+### Example Edge Case Tests
+
+```go
+// Test corrupted git repository
+func TestWorktreeListCorruptedRepo(t *testing.T) {
+    repo := createTestRepo(t)
+    // Corrupt the .git directory
+    os.Remove(filepath.Join(repo, ".git", "HEAD"))
+
+    _, err := worktree.List(repo)
+    // Should handle gracefully, not panic
+    assert.Error(t, err)
+    assert.Contains(t, err.Error(), "repository")
+}
+
+// Test very long branch names
+func TestAddWorktreeVeryLongBranchName(t *testing.T) {
+    longName := strings.Repeat("very-long-branch-name-", 20) // 400+ chars
+    // Test system limits gracefully
+}
+
+// Test network timeouts
+func TestUpdateWithNetworkTimeout(t *testing.T) {
+    // Simulate slow/timeout server
+    // Verify graceful failure, not hang
+}
+```
+
+### Happy Path vs Edge Case Balance
+
+- **Happy path tests**: Ensure core functionality works
+- **Edge case tests**: Ensure robustness when things go wrong
+- **Integration tests**: Ensure components work together under stress
+
+**Priority order**: Critical user journeys → Common error scenarios → Boundary conditions → Coverage gaps
+
 ### Managing Tasks Across Sessions
 - GitHub Issues are used to track outstanding work
 - Issues are labeled with `enhancement`, `good first issue`, `ux`, etc.
