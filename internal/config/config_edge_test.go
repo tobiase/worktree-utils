@@ -213,7 +213,7 @@ commands:
 
 	// Restore permissions at the end
 	defer func() {
-		os.Chmod(configPath, originalMode.Mode())
+		_ = os.Chmod(configPath, originalMode.Mode())
 	}()
 
 	_, err = manager.loadProjectConfig("permission-test.yaml")

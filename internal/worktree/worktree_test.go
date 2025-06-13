@@ -508,26 +508,6 @@ func corruptGitRepo(t *testing.T, repoPath string) {
 	os.Remove(filepath.Join(gitDir, "config"))
 }
 
-func createRepoWithDetachedHead(t *testing.T) (string, func()) {
-	repo, cleanup := helpers.CreateTestRepo(t)
-
-	// Create a commit and then detach HEAD
-	helpers.CreateTestBranch(t, repo, "test-branch")
-
-	// Get the commit hash and checkout directly
-	oldWd, _ := os.Getwd()
-	os.Chdir(repo)
-	defer os.Chdir(oldWd)
-
-	// Simulate detached HEAD by checking out commit directly
-	// This creates a detached HEAD state
-	cmd := exec.Command("git", "checkout", "HEAD~0")
-	cmd.Dir = repo
-	cmd.Run() // Ignore errors as this might fail in some Git versions
-
-	return repo, cleanup
-}
-
 func createRepoWithNoCommits(t *testing.T) (string, func()) {
 	tempDir, err := os.MkdirTemp("", "wt-test-no-commits-*")
 	if err != nil {
@@ -545,11 +525,11 @@ func createRepoWithNoCommits(t *testing.T) (string, func()) {
 	// Configure git user
 	cmd = exec.Command("git", "config", "user.name", "Test User")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 
 	cmd = exec.Command("git", "config", "user.email", "test@example.com")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 
 	cleanup := func() {
 		os.RemoveAll(tempDir)
@@ -578,8 +558,8 @@ func TestListWorktreesNoCommits(t *testing.T) {
 	defer cleanup()
 
 	oldWd, _ := os.Getwd()
-	defer os.Chdir(oldWd)
-	os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(repo)
 
 	err := List()
 
@@ -600,8 +580,8 @@ func TestListWorktreesCorruptedGit(t *testing.T) {
 	corruptGitRepo(t, repo)
 
 	oldWd, _ := os.Getwd()
-	defer os.Chdir(oldWd)
-	os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(repo)
 
 	err := List()
 
@@ -638,12 +618,12 @@ func TestListWorktreesPermissionDenied(t *testing.T) {
 
 	// Restore permissions at the end
 	defer func() {
-		os.Chmod(gitDir, originalMode.Mode())
+		_ = os.Chmod(gitDir, originalMode.Mode())
 	}()
 
 	oldWd, _ := os.Getwd()
-	defer os.Chdir(oldWd)
-	os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(repo)
 
 	err = List()
 
@@ -664,8 +644,8 @@ func TestAddWorktreeVeryLongBranchName(t *testing.T) {
 	defer cleanup()
 
 	oldWd, _ := os.Getwd()
-	defer os.Chdir(oldWd)
-	os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(repo)
 
 	// Create a very long branch name (filesystem limits vary, but 255+ chars often cause issues)
 	longName := strings.Repeat("very-long-branch-name-", 20) // ~440 characters
@@ -691,8 +671,8 @@ func TestAddWorktreeSpecialCharBranchNames(t *testing.T) {
 	defer cleanup()
 
 	oldWd, _ := os.Getwd()
-	defer os.Chdir(oldWd)
-	os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(repo)
 
 	problematicNames := []string{
 		"branch with spaces",
@@ -724,8 +704,8 @@ func TestGoMissingWorktreeDir(t *testing.T) {
 	defer cleanup()
 
 	oldWd, _ := os.Getwd()
-	defer os.Chdir(oldWd)
-	os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(repo)
 
 	// Create a worktree first
 	worktreePath, err := helpers.AddTestWorktree(t, repo, "test-branch")
@@ -764,8 +744,8 @@ func TestAddWorktreeWithUncommittedChanges(t *testing.T) {
 	defer cleanup()
 
 	oldWd, _ := os.Getwd()
-	defer os.Chdir(oldWd)
-	os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(repo)
 
 	// Try to add a worktree when there are uncommitted changes
 	_, err := NewWorktree("new-branch", "", nil)
@@ -787,8 +767,8 @@ func TestRemoveWorktreeWithUncommittedChanges(t *testing.T) {
 	defer cleanup()
 
 	oldWd, _ := os.Getwd()
-	defer os.Chdir(oldWd)
-	os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(repo)
 
 	// Create a worktree
 	worktreePath, err := helpers.AddTestWorktree(t, repo, "test-branch")
@@ -821,8 +801,8 @@ func TestDeepDirectoryPaths(t *testing.T) {
 	defer cleanup()
 
 	oldWd, _ := os.Getwd()
-	defer os.Chdir(oldWd)
-	os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(repo)
 
 	// Create a deeply nested worktree path
 	deepBranch := "very/deeply/nested/branch/structure/that/goes/many/levels/deep"
