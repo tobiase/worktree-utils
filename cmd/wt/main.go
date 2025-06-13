@@ -48,6 +48,16 @@ func main() {
 	cmd := os.Args[1]
 	args := os.Args[2:]
 
+	// Handle command aliases
+	aliases := map[string]string{
+		"ls":     "list",
+		"switch": "go",
+		"s":      "go",
+	}
+	if alias, ok := aliases[cmd]; ok {
+		cmd = alias
+	}
+
 	// Special handling for setup command (doesn't need config)
 	if cmd == "setup" {
 		handleSetupCommand(args)
@@ -382,10 +392,10 @@ func showUsage() {
 	usage := `Usage: wt <command> [arguments]
 
 Core commands:
-  list                List all worktrees
+  list, ls            List all worktrees
   add <branch>        Add a new worktree
   rm <branch>         Remove a worktree
-  go [index|branch]   Switch to a worktree (no args = repo root)
+  go, switch, s       Switch to a worktree (no args = repo root)
   new <branch>        Create and switch to a new worktree
                       Options: --base <branch>
 
