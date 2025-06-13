@@ -202,30 +202,41 @@ var executablePath = os.Executable
 
 // extractAndInstall extracts the binary from the tarball and installs it
 func extractAndInstall(tarPath string) error {
-	// Get current executable path
 	exePath, err := executablePath()
 	if err != nil {
 		return fmt.Errorf("failed to get executable path: %w", err)
 	}
 
-	// Open tarball
-	file, err := os.Open(tarPath)
+	tr, cleanup, err := openTarArchive(tarPath)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer cleanup()
 
-	// Create gzip reader
+	return extractBinaryFromTar(tr, exePath)
+}
+
+func openTarArchive(tarPath string) (*tar.Reader, func(), error) {
+	file, err := os.Open(tarPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
-		return fmt.Errorf("failed to create gzip reader: %w", err)
+		file.Close()
+		return nil, nil, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer gzr.Close()
 
-	// Create tar reader
-	tr := tar.NewReader(gzr)
+	cleanup := func() {
+		gzr.Close()
+		file.Close()
+	}
 
-	// Find and extract the binary
+	return tar.NewReader(gzr), cleanup, nil
+}
+
+func extractBinaryFromTar(tr *tar.Reader, exePath string) error {
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
@@ -235,38 +246,40 @@ func extractAndInstall(tarPath string) error {
 			return fmt.Errorf("failed to read tar: %w", err)
 		}
 
-		// Look for the wt-bin file
-		if header.Name == "wt-bin" || filepath.Base(header.Name) == "wt-bin" {
-			// Create temporary file for new binary
-			tmpBin, err := os.CreateTemp(filepath.Dir(exePath), "wt-bin-new-*")
-			if err != nil {
-				return fmt.Errorf("failed to create temp binary: %w", err)
-			}
-			tmpPath := tmpBin.Name()
-			defer os.Remove(tmpPath)
-
-			// Copy binary content
-			if _, err := io.Copy(tmpBin, tr); err != nil {
-				tmpBin.Close()
-				return fmt.Errorf("failed to extract binary: %w", err)
-			}
-			tmpBin.Close()
-
-			// Make it executable
-			if err := os.Chmod(tmpPath, 0755); err != nil {
-				return fmt.Errorf("failed to make binary executable: %w", err)
-			}
-
-			// Atomically replace the old binary
-			if err := os.Rename(tmpPath, exePath); err != nil {
-				return fmt.Errorf("failed to replace binary: %w", err)
-			}
-
-			return nil
+		if isBinaryFile(header.Name) {
+			return installBinaryFromTar(tr, exePath)
 		}
 	}
-
 	return fmt.Errorf("binary not found in archive")
+}
+
+func isBinaryFile(name string) bool {
+	return name == "wt-bin" || filepath.Base(name) == "wt-bin"
+}
+
+func installBinaryFromTar(tr *tar.Reader, exePath string) error {
+	tmpBin, err := os.CreateTemp(filepath.Dir(exePath), "wt-bin-new-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp binary: %w", err)
+	}
+	tmpPath := tmpBin.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := io.Copy(tmpBin, tr); err != nil {
+		tmpBin.Close()
+		return fmt.Errorf("failed to extract binary: %w", err)
+	}
+	tmpBin.Close()
+
+	if err := os.Chmod(tmpPath, 0755); err != nil {
+		return fmt.Errorf("failed to make binary executable: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, exePath); err != nil {
+		return fmt.Errorf("failed to replace binary: %w", err)
+	}
+
+	return nil
 }
 
 // CalculateChecksum calculates SHA256 checksum of a file

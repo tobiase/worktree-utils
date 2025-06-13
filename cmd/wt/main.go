@@ -45,18 +45,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	cmd := os.Args[1]
+	cmd := resolveCommandAlias(os.Args[1])
 	args := os.Args[2:]
-
-	// Handle command aliases
-	aliases := map[string]string{
-		"ls":     "list",
-		"switch": "go",
-		"s":      "go",
-	}
-	if alias, ok := aliases[cmd]; ok {
-		cmd = alias
-	}
 
 	// Special handling for setup command (doesn't need config)
 	if cmd == "setup" {
@@ -64,140 +54,183 @@ func main() {
 		return
 	}
 
-	// Initialize config manager
+	// Initialize and run command
+	configMgr := initializeConfig()
+	loadProjectConfig(configMgr, cmd)
+	runCommand(cmd, args, configMgr)
+}
+
+func resolveCommandAlias(cmd string) string {
+	aliases := map[string]string{
+		"ls":     "list",
+		"switch": "go",
+		"s":      "go",
+	}
+	if alias, ok := aliases[cmd]; ok {
+		return alias
+	}
+	return cmd
+}
+
+func initializeConfig() *config.Manager {
 	configMgr, err := config.NewManager()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: failed to initialize config: %v\n", err)
 		os.Exit(1)
 	}
+	return configMgr
+}
 
-	// Load project config for current directory (except for shell-init)
+func loadProjectConfig(configMgr *config.Manager, cmd string) {
 	if cmd != "shell-init" {
 		cwd, _ := os.Getwd()
 		gitRemote, _ := worktree.GetGitRemote()
 		_ = configMgr.LoadProject(cwd, gitRemote)
 	}
+}
 
+func runCommand(cmd string, args []string, configMgr *config.Manager) {
 	switch cmd {
 	case "shell-init":
 		fmt.Print(shellWrapper)
-		return
-
 	case "list":
-		if err := worktree.List(); err != nil {
-			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-			os.Exit(1)
-		}
-
+		handleListCommand()
 	case "add":
-		if len(args) < 1 {
-			fmt.Fprintf(os.Stderr, "Usage: wt add <branch>\n")
-			os.Exit(1)
-		}
-		if err := worktree.Add(args[0], configMgr); err != nil {
-			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-			os.Exit(1)
-		}
-
+		handleAddCommand(args, configMgr)
 	case "rm":
-		if len(args) < 1 {
-			fmt.Fprintf(os.Stderr, "Usage: wt rm <branch>\n")
-			os.Exit(1)
-		}
-		if err := worktree.Remove(args[0]); err != nil {
-			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-			os.Exit(1)
-		}
-
+		handleRemoveCommand(args)
 	case "go":
-		var path string
-		var err error
-
-		if len(args) < 1 {
-			// No arguments - go to repository root
-			path, err = worktree.GetRepoRoot()
-		} else {
-			// Go to specified worktree
-			path, err = worktree.Go(args[0])
-		}
-
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("CD:%s", path)
-
+		handleGoCommand(args)
 	case "new":
-		if len(args) < 1 {
-			fmt.Fprintf(os.Stderr, "Usage: wt new <branch> [--base <branch>]\n")
-			os.Exit(1)
-		}
-
-		branch := args[0]
-		baseBranch := ""
-
-		// Parse flags
-		for i := 1; i < len(args); i++ {
-			if args[i] == "--base" && i+1 < len(args) {
-				baseBranch = args[i+1]
-				i++
-			}
-		}
-
-		path, err := worktree.NewWorktree(branch, baseBranch, configMgr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("CD:%s", path)
-
+		handleNewCommand(args, configMgr)
 	case "env-copy":
-		if len(args) < 1 {
-			fmt.Fprintf(os.Stderr, "Usage: wt env-copy <branch> [--recursive]\n")
-			os.Exit(1)
-		}
-
-		targetBranch := args[0]
-		recursive := false
-
-		// Check for --recursive flag
-		for _, arg := range args[1:] {
-			if arg == "--recursive" {
-				recursive = true
-			}
-		}
-
-		if err := worktree.CopyEnvFile(targetBranch, recursive); err != nil {
-			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-			os.Exit(1)
-		}
-
+		handleEnvCopyCommand(args)
 	case "project":
 		handleProjectCommand(args, configMgr)
-
 	case "version":
-		fmt.Printf("wt version %s\n", version)
-		if version != "dev" {
-			fmt.Printf("  commit: %s\n", commit)
-			fmt.Printf("  built:  %s\n", date)
-		}
-
+		handleVersionCommand()
 	case "update":
 		handleUpdateCommand(args)
-
 	default:
-		// Check if it's a project-specific command
-		if navCmd, exists := configMgr.GetCommand(cmd); exists {
-			if navCmd.Type == "virtualenv" {
-				handleVirtualenvCommand(navCmd, configMgr)
-			} else {
-				handleNavigationCommand(navCmd)
-			}
-		} else {
-			fmt.Fprintf(os.Stderr, "wt: unknown command '%s'\n", cmd)
-			showUsage()
-			os.Exit(1)
+		handleCustomCommand(cmd, configMgr)
+	}
+}
+
+func handleListCommand() {
+	if err := worktree.List(); err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleAddCommand(args []string, configMgr *config.Manager) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Usage: wt add <branch>\n")
+		os.Exit(1)
+	}
+	if err := worktree.Add(args[0], configMgr); err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleRemoveCommand(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Usage: wt rm <branch>\n")
+		os.Exit(1)
+	}
+	if err := worktree.Remove(args[0]); err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleGoCommand(args []string) {
+	var path string
+	var err error
+
+	if len(args) < 1 {
+		path, err = worktree.GetRepoRoot()
+	} else {
+		path, err = worktree.Go(args[0])
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("CD:%s", path)
+}
+
+func handleNewCommand(args []string, configMgr *config.Manager) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Usage: wt new <branch> [--base <branch>]\n")
+		os.Exit(1)
+	}
+
+	branch, baseBranch := parseNewCommandArgs(args)
+	path, err := worktree.NewWorktree(branch, baseBranch, configMgr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("CD:%s", path)
+}
+
+func parseNewCommandArgs(args []string) (branch, baseBranch string) {
+	branch = args[0]
+	for i := 1; i < len(args); i++ {
+		if args[i] == "--base" && i+1 < len(args) {
+			baseBranch = args[i+1]
+			i++
 		}
+	}
+	return
+}
+
+func handleEnvCopyCommand(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Usage: wt env-copy <branch> [--recursive]\n")
+		os.Exit(1)
+	}
+
+	targetBranch := args[0]
+	recursive := hasFlag(args[1:], "--recursive")
+
+	if err := worktree.CopyEnvFile(targetBranch, recursive); err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func hasFlag(args []string, flag string) bool {
+	for _, arg := range args {
+		if arg == flag {
+			return true
+		}
+	}
+	return false
+}
+
+func handleVersionCommand() {
+	fmt.Printf("wt version %s\n", version)
+	if version != "dev" {
+		fmt.Printf("  commit: %s\n", commit)
+		fmt.Printf("  built:  %s\n", date)
+	}
+}
+
+func handleCustomCommand(cmd string, configMgr *config.Manager) {
+	if navCmd, exists := configMgr.GetCommand(cmd); exists {
+		if navCmd.Type == "virtualenv" {
+			handleVirtualenvCommand(navCmd, configMgr)
+		} else {
+			handleNavigationCommand(navCmd)
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "wt: unknown command '%s'\n", cmd)
+		showUsage()
+		os.Exit(1)
 	}
 }
 
@@ -389,7 +422,12 @@ func handleSetupCommand(args []string) {
 }
 
 func showUsage() {
-	usage := `Usage: wt <command> [arguments]
+	fmt.Print(getCoreUsage())
+	printProjectCommands()
+}
+
+func getCoreUsage() string {
+	return `Usage: wt <command> [arguments]
 
 Core commands:
   list, ls            List all worktrees
@@ -413,53 +451,78 @@ Setup commands:
 Other commands:
   shell-init          Output shell initialization code
   version             Show version information`
+}
 
-	// Add project-specific commands if available
-	if configMgr, err := config.NewManager(); err == nil {
-		cwd, _ := os.Getwd()
-		gitRemote, _ := worktree.GetGitRemote()
-		_ = configMgr.LoadProject(cwd, gitRemote)
+func printProjectCommands() {
+	configMgr, err := config.NewManager()
+	if err != nil {
+		return
+	}
 
-		if project := configMgr.GetCurrentProject(); project != nil {
-			if len(project.Commands) > 0 {
-				// Separate commands by type
-				var navCommands []string
-				var venvCommands []string
+	cwd, _ := os.Getwd()
+	gitRemote, _ := worktree.GetGitRemote()
+	_ = configMgr.LoadProject(cwd, gitRemote)
 
-				for name, cmd := range project.Commands {
-					if cmd.Type == "virtualenv" {
-						venvCommands = append(venvCommands, name)
-					} else {
-						navCommands = append(navCommands, name)
-					}
-				}
+	project := configMgr.GetCurrentProject()
+	if project == nil || len(project.Commands) == 0 {
+		return
+	}
 
-				// Sort both lists
-				sort.Strings(navCommands)
-				sort.Strings(venvCommands)
+	navCommands, venvCommands := categorizeProjectCommands(project.Commands)
+	printCommandCategories(navCommands, venvCommands, project.Name)
+}
 
-				// Show navigation commands
-				if len(navCommands) > 0 {
-					usage += fmt.Sprintf("\n\nProject '%s' navigation:", project.Name)
-					for _, name := range navCommands {
-						cmd := project.Commands[name]
-						usage += fmt.Sprintf("\n  %-18s %s", name, cmd.Description)
-					}
-				}
+func categorizeProjectCommands(commands map[string]config.NavigationCommand) ([]string, []string) {
+	var navCommands, venvCommands []string
 
-				// Show virtualenv commands
-				if len(venvCommands) > 0 {
-					usage += fmt.Sprintf("\n\nProject '%s' virtualenv:", project.Name)
-					for _, name := range venvCommands {
-						cmd := project.Commands[name]
-						usage += fmt.Sprintf("\n  %-18s %s", name, cmd.Description)
-					}
-				}
-			}
+	for name, cmd := range commands {
+		if cmd.Type == "virtualenv" {
+			venvCommands = append(venvCommands, name)
+		} else {
+			navCommands = append(navCommands, name)
 		}
 	}
 
-	fmt.Fprintln(os.Stderr, usage)
+	sort.Strings(navCommands)
+	sort.Strings(venvCommands)
+	return navCommands, venvCommands
+}
+
+func printCommandCategories(navCommands, venvCommands []string, projectName string) {
+	// We need access to project commands - get them from config manager
+	configMgr, err := config.NewManager()
+	if err != nil {
+		return
+	}
+
+	cwd, _ := os.Getwd()
+	gitRemote, _ := worktree.GetGitRemote()
+	_ = configMgr.LoadProject(cwd, gitRemote)
+
+	project := configMgr.GetCurrentProject()
+	if project == nil {
+		return
+	}
+
+	// Show navigation commands
+	if len(navCommands) > 0 {
+		fmt.Fprintf(os.Stderr, "\n\nProject '%s' navigation:", projectName)
+		for _, name := range navCommands {
+			cmd := project.Commands[name]
+			fmt.Fprintf(os.Stderr, "\n  %-18s %s", name, cmd.Description)
+		}
+	}
+
+	// Show virtualenv commands
+	if len(venvCommands) > 0 {
+		fmt.Fprintf(os.Stderr, "\n\nProject '%s' virtualenv:", projectName)
+		for _, name := range venvCommands {
+			cmd := project.Commands[name]
+			fmt.Fprintf(os.Stderr, "\n  %-18s %s", name, cmd.Description)
+		}
+	}
+
+	fmt.Fprintln(os.Stderr)
 }
 
 func handleUpdateCommand(args []string) {

@@ -26,14 +26,14 @@ linters-settings:
   goimports:
     local-prefixes: github.com/tobiase/worktree-utils
   gocyclo:
-    min-complexity: 40
+    min-complexity: 15
   dupl:
     threshold: 100
   goconst:
     min-len: 3
     min-occurrences: 3
   gocognit:
-    min-complexity: 50
+    min-complexity: 20
   revive:
     rules:
       - name: blank-imports
@@ -62,3 +62,9 @@ issues:
     # Allow global variables in update.go
     - path: internal/update/update.go
       text: "githubAPIURL|httpClient|platformInfo|executablePath"
+
+    # Allow higher complexity in test files
+    - path: _test\.go
+      linters:
+        - gocognit
+        - gocyclo
