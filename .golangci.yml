@@ -1,0 +1,33 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - gofmt
+    - govet
+    - errcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - misspell
+    - goimports
+
+linters-settings:
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: github.com/tobiase/worktree-utils
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - errcheck
+
+    # Allow global variables in update.go
+    - path: internal/update/update.go
+      text: "githubAPIURL|httpClient|platformInfo|executablePath"
+
+# Note: golangci-lint v1.55.2 has compatibility issues with Go 1.24
+# This config is kept for future use when compatibility is resolved

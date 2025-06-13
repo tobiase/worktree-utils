@@ -45,7 +45,7 @@ func TestGetRepoRoot(t *testing.T) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				subdir := filepath.Join(repo, "subdir")
 				os.MkdirAll(subdir, 0755)
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(subdir)
 				return repo, func() {
@@ -87,12 +87,12 @@ func TestGetRepoRoot(t *testing.T) {
 			defer cleanup()
 
 			got, err := GetRepoRoot()
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetRepoRoot() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr && tt.check != nil {
 				tt.check(t, got, tempDir)
 			}
@@ -162,12 +162,12 @@ func TestGetWorktreeBase(t *testing.T) {
 			defer cleanup()
 
 			got, err := GetWorktreeBase()
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetWorktreeBase() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr && tt.check != nil {
 				tt.check(t, got, repo)
 			}
@@ -202,11 +202,11 @@ func TestParseWorktrees(t *testing.T) {
 			name: "multiple worktrees",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				
+
 				// Create additional worktrees
 				helpers.AddTestWorktree(t, repo, "feature-1")
 				helpers.AddTestWorktree(t, repo, "feature-2")
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(repo)
 				return repo, func() {
@@ -225,11 +225,11 @@ func TestParseWorktrees(t *testing.T) {
 			name: "worktree with detached HEAD",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				
+
 				// Get current commit hash
 				output := helpers.GetGitOutput(t, repo, "rev-parse", "HEAD")
 				commitHash := strings.TrimSpace(output)
-				
+
 				// Create worktree at specific commit (detached HEAD)
 				worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
 				os.MkdirAll(worktreeBase, 0755)
@@ -238,7 +238,7 @@ func TestParseWorktrees(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to create detached worktree: %v", err)
 				}
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(repo)
 				return repo, func() {
@@ -260,24 +260,24 @@ func TestParseWorktrees(t *testing.T) {
 			defer cleanup()
 
 			got, err := parseWorktrees()
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseWorktrees() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr {
 				if len(got) != len(tt.want) {
 					t.Errorf("Expected %d worktrees, got %d", len(tt.want), len(got))
 					return
 				}
-				
+
 				// Create a map of branches for easier comparison
 				gotBranches := make(map[string]bool)
 				for _, wt := range got {
 					gotBranches[wt.Branch] = true
 				}
-				
+
 				for _, want := range tt.want {
 					if !gotBranches[want.Branch] {
 						t.Errorf("Expected worktree with branch %q not found", want.Branch)
@@ -301,7 +301,7 @@ func TestList(t *testing.T) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				helpers.AddTestWorktree(t, repo, "feature-1")
 				helpers.AddTestWorktree(t, repo, "bugfix-2")
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(repo)
 				return repo, func() {
@@ -315,9 +315,9 @@ func TestList(t *testing.T) {
 					return false
 				}
 				// Check for branches
-				return strings.Contains(output, "main") && 
-					   strings.Contains(output, "feature-1") && 
-					   strings.Contains(output, "bugfix-2")
+				return strings.Contains(output, "main") &&
+					strings.Contains(output, "feature-1") &&
+					strings.Contains(output, "bugfix-2")
 			},
 			wantErr: false,
 		},
@@ -353,12 +353,12 @@ func TestList(t *testing.T) {
 					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				}
 			})
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("List() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr && tt.wantOut != nil {
 				if !tt.wantOut(stdout) {
 					t.Errorf("List() output validation failed.\nGot:\n%s", stdout)
@@ -382,7 +382,7 @@ func TestGo(t *testing.T) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				helpers.AddTestWorktree(t, repo, "feature-1")
 				helpers.AddTestWorktree(t, repo, "feature-2")
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(repo)
 				return repo, func() {
@@ -404,7 +404,7 @@ func TestGo(t *testing.T) {
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				helpers.AddTestWorktree(t, repo, "feature-1")
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(repo)
 				return repo, func() {
@@ -453,7 +453,7 @@ func TestGo(t *testing.T) {
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
 				helpers.AddTestWorktree(t, repo, "feature-1")
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(repo)
 				return repo, func() {
@@ -480,12 +480,12 @@ func TestGo(t *testing.T) {
 			defer cleanup()
 
 			gotPath, err := Go(tt.target)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Go() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr && tt.check != nil {
 				tt.check(t, gotPath, repo)
 			}

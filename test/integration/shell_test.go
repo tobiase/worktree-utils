@@ -46,15 +46,15 @@ func TestShellWrapper(t *testing.T) {
 			setup: func(t *testing.T) (string, func()) {
 				// Create a test repo with project config
 				repo, cleanup := helpers.CreateTestRepo(t)
-				
+
 				// Create a temporary HOME directory
 				tempHome := filepath.Join(os.TempDir(), "wt-test-home")
 				os.MkdirAll(tempHome, 0755)
-				
+
 				// Create config directory structure
 				configDir := filepath.Join(tempHome, ".config", "wt", "projects")
 				os.MkdirAll(configDir, 0755)
-				
+
 				// Create project config with virtualenv
 				// Resolve symlinks for macOS compatibility
 				resolvedRepo, _ := filepath.EvalSymlinks(repo)
@@ -69,20 +69,20 @@ virtualenv:
 `
 				configPath := filepath.Join(configDir, "testproject.yaml")
 				os.WriteFile(configPath, []byte(projectConfig), 0644)
-				
+
 				// Create the virtualenv directory and activation script
 				venvBin := filepath.Join(repo, ".venv", "bin")
 				os.MkdirAll(venvBin, 0755)
-				
+
 				// Create a dummy activate script
 				activateScript := filepath.Join(venvBin, "activate")
 				os.WriteFile(activateScript, []byte("#!/bin/bash\n# Dummy activate script\n"), 0755)
-				
+
 				oldWd, _ := os.Getwd()
 				oldHome := os.Getenv("HOME")
 				os.Chdir(repo)
 				os.Setenv("HOME", tempHome)
-				
+
 				return repo, func() {
 					os.Chdir(oldWd)
 					os.Setenv("HOME", oldHome)
@@ -151,7 +151,6 @@ virtualenv:
 			// Get output
 			output := stdout.String()
 			errorOutput := stderr.String()
-			
 
 			// Verify output type
 			switch tt.expectedType {
@@ -195,11 +194,11 @@ func TestShellWrapperScript(t *testing.T) {
 
 	// Create a mock binary that outputs specific strings
 	mockBin := createMockBinary(t, map[string]mockResponse{
-		"go main":     {output: "CD:/test/path", exitCode: 0},
-		"venv":        {output: "EXEC:source .venv/bin/activate", exitCode: 0},
-		"list":        {output: "Regular output", exitCode: 0},
-		"error":       {output: "Error message", exitCode: 1, isError: true},
-		"shell-init":  {output: getShellWrapper(), exitCode: 0},
+		"go main":    {output: "CD:/test/path", exitCode: 0},
+		"venv":       {output: "EXEC:source .venv/bin/activate", exitCode: 0},
+		"list":       {output: "Regular output", exitCode: 0},
+		"error":      {output: "Error message", exitCode: 1, isError: true},
+		"shell-init": {output: getShellWrapper(), exitCode: 0},
 	})
 	defer os.Remove(mockBin)
 
@@ -212,21 +211,21 @@ func TestShellWrapperScript(t *testing.T) {
 		expectError  bool
 	}{
 		{
-			name:    "CD prefix changes directory",
-			command: "wt go main",
-			checkScript: `pwd`,
+			name:         "CD prefix changes directory",
+			command:      "wt go main",
+			checkScript:  `pwd`,
 			expectOutput: "/test/path",
 		},
 		{
-			name:    "EXEC prefix executes command",
-			command: "wt venv",
-			checkScript: `echo "Command would execute: source .venv/bin/activate"`,
+			name:         "EXEC prefix executes command",
+			command:      "wt venv",
+			checkScript:  `echo "Command would execute: source .venv/bin/activate"`,
 			expectOutput: "Command would execute",
 		},
 		{
-			name:    "Regular output is printed",
-			command: "wt list",
-			checkScript: `true`,
+			name:         "Regular output is printed",
+			command:      "wt list",
+			checkScript:  `true`,
 			expectOutput: "Regular output",
 		},
 		{
@@ -307,7 +306,7 @@ var responses = map[string]struct{
 `
 	// Add responses to the code
 	for cmd, resp := range responses {
-		mockCode += fmt.Sprintf("\t%q: {output: %q, exitCode: %d, isError: %v},\n", 
+		mockCode += fmt.Sprintf("\t%q: {output: %q, exitCode: %d, isError: %v},\n",
 			cmd, resp.output, resp.exitCode, resp.isError)
 	}
 
@@ -315,7 +314,7 @@ var responses = map[string]struct{
 
 func main() {
 	args := strings.Join(os.Args[1:], " ")
-	
+
 	if resp, ok := responses[args]; ok {
 		if resp.isError {
 			fmt.Fprint(os.Stderr, resp.output)
@@ -324,7 +323,7 @@ func main() {
 		}
 		os.Exit(resp.exitCode)
 	}
-	
+
 	fmt.Fprintf(os.Stderr, "Unknown command: %s\n", args)
 	os.Exit(1)
 }
@@ -348,14 +347,13 @@ func main() {
 	return mockBin
 }
 
-
 // getShellWrapper returns the shell wrapper script (matching main.go)
 func getShellWrapper() string {
 	return `# Shell function to handle CD: and EXEC: prefixes
 wt() {
   output=$("${WT_BIN:-wt-bin}" "$@" 2>&1)
   exit_code=$?
-  
+
   if [ $exit_code -eq 0 ]; then
     if [[ "$output" == "CD:"* ]]; then
       cd "${output#CD:}"

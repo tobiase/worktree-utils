@@ -34,7 +34,7 @@ func GetWorktreeBase() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	repoName := filepath.Base(repo)
 	repoParent := filepath.Dir(repo)
 	return filepath.Join(repoParent, repoName+"-worktrees"), nil
@@ -55,11 +55,11 @@ func parseWorktrees() ([]Worktree, error) {
 
 	var worktrees []Worktree
 	var currentPath string
-	
+
 	scanner := bufio.NewScanner(bytes.NewReader(output))
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		if strings.HasPrefix(line, "worktree ") {
 			currentPath = strings.TrimPrefix(line, "worktree ")
 		} else if strings.HasPrefix(line, "branch refs/heads/") {
@@ -70,7 +70,7 @@ func parseWorktrees() ([]Worktree, error) {
 			})
 		}
 	}
-	
+
 	return worktrees, scanner.Err()
 }
 
@@ -80,17 +80,17 @@ func List() error {
 	if err != nil {
 		return err
 	}
-	
+
 	if len(worktrees) == 0 {
 		fmt.Println("wt: no worktrees found.")
 		return nil
 	}
-	
+
 	fmt.Printf("%-5s %-20s %s\n", "Index", "Branch", "Path")
 	for i, wt := range worktrees {
 		fmt.Printf("%-5d %-20s %s\n", i, wt.Branch, wt.Path)
 	}
-	
+
 	return nil
 }
 
@@ -100,29 +100,29 @@ func Add(branch string, cfg *config.Manager) error {
 	if err != nil {
 		return err
 	}
-	
+
 	worktreeBase, err := GetWorktreeBase()
 	if err != nil {
 		return err
 	}
-	
+
 	// Use project-specific worktree base if configured
 	if cfg != nil && cfg.GetCurrentProject() != nil {
 		if projectBase := cfg.GetCurrentProject().Settings.WorktreeBase; projectBase != "" {
 			worktreeBase = projectBase
 		}
 	}
-	
+
 	// Create worktree base directory if it doesn't exist
 	if err := os.MkdirAll(worktreeBase, 0755); err != nil {
 		return fmt.Errorf("failed to create worktree directory: %v", err)
 	}
-	
+
 	worktreePath := filepath.Join(worktreeBase, branch)
 	cmd := exec.Command("git", "-C", repo, "worktree", "add", worktreePath, branch)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	return cmd.Run()
 }
 
@@ -132,13 +132,13 @@ func Remove(target string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// First, try to find the worktree by branch name
 	worktrees, err := parseWorktrees()
 	if err != nil {
 		return err
 	}
-	
+
 	var worktreePath string
 	for _, wt := range worktrees {
 		if wt.Branch == target {
@@ -146,7 +146,7 @@ func Remove(target string) error {
 			break
 		}
 	}
-	
+
 	// If not found by branch name, check if target is a path
 	if worktreePath == "" {
 		// Check if target is an absolute path that exists
@@ -162,15 +162,15 @@ func Remove(target string) error {
 			}
 		}
 	}
-	
+
 	if worktreePath == "" {
 		return fmt.Errorf("worktree '%s' not found", target)
 	}
-	
+
 	cmd := exec.Command("git", "-C", repo, "worktree", "remove", worktreePath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	return cmd.Run()
 }
 
@@ -180,11 +180,11 @@ func Go(target string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	if len(worktrees) == 0 {
 		return "", fmt.Errorf("no worktrees exist")
 	}
-	
+
 	// Try to parse as index first
 	if index, err := strconv.Atoi(target); err == nil {
 		if index >= 0 && index < len(worktrees) {
@@ -192,13 +192,13 @@ func Go(target string) (string, error) {
 		}
 		return "", fmt.Errorf("index %d out of range (0..%d)", index, len(worktrees)-1)
 	}
-	
+
 	// Try to match by branch name
 	for _, wt := range worktrees {
 		if wt.Branch == target {
 			return wt.Path, nil
 		}
 	}
-	
+
 	return "", fmt.Errorf("branch '%s' not found among worktrees", target)
 }

@@ -95,10 +95,10 @@ func TestVersionFormat(t *testing.T) {
 
 			// Create expected output
 			expected := fmt.Sprintf("wt version %s\ncommit: %s\nbuilt at: %s", version, commit, date)
-			
+
 			// The actual version command would use these variables
 			got := fmt.Sprintf("wt version %s\ncommit: %s\nbuilt at: %s", version, commit, date)
-			
+
 			if got != expected {
 				t.Errorf("Version output = %q, want %q", got, expected)
 			}
@@ -176,18 +176,18 @@ func TestCommandlineArgParsing(t *testing.T) {
 			if len(tt.args) < 2 {
 				return
 			}
-			
+
 			cmd := tt.args[1]
 			args := tt.args[2:]
-			
+
 			if cmd != tt.wantCmd {
 				t.Errorf("Parsed command = %q, want %q", cmd, tt.wantCmd)
 			}
-			
+
 			if len(args) != len(tt.wantArgs) {
 				t.Errorf("Parsed args length = %d, want %d", len(args), len(tt.wantArgs))
 			}
-			
+
 			for i, arg := range args {
 				if i < len(tt.wantArgs) && arg != tt.wantArgs[i] {
 					t.Errorf("Parsed arg[%d] = %q, want %q", i, arg, tt.wantArgs[i])

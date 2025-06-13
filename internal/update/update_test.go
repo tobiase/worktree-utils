@@ -25,7 +25,7 @@ func mockReleaseResponse(version string, assets []Asset) *http.Response {
 		PublishedAt: time.Now().Format(time.RFC3339),
 		Assets:      assets,
 	}
-	
+
 	body, _ := json.Marshal(release)
 	return &http.Response{
 		StatusCode: 200,
@@ -37,13 +37,13 @@ func mockReleaseResponse(version string, assets []Asset) *http.Response {
 // Create a test tar.gz archive with a binary
 func createTestArchive(t *testing.T, binaryName string, content []byte) []byte {
 	var buf bytes.Buffer
-	
+
 	// Create gzip writer
 	gw := gzip.NewWriter(&buf)
-	
+
 	// Create tar writer
 	tw := tar.NewWriter(gw)
-	
+
 	// Add file to archive
 	header := &tar.Header{
 		Name:    binaryName,
@@ -51,15 +51,15 @@ func createTestArchive(t *testing.T, binaryName string, content []byte) []byte {
 		Size:    int64(len(content)),
 		ModTime: time.Now(),
 	}
-	
+
 	if err := tw.WriteHeader(header); err != nil {
 		t.Fatal(err)
 	}
-	
+
 	if _, err := tw.Write(content); err != nil {
 		t.Fatal(err)
 	}
-	
+
 	// Close writers
 	if err := tw.Close(); err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func createTestArchive(t *testing.T, binaryName string, content []byte) []byte {
 	if err := gw.Close(); err != nil {
 		t.Fatal(err)
 	}
-	
+
 	return buf.Bytes()
 }
 
@@ -75,14 +75,14 @@ func TestCheckForUpdate(t *testing.T) {
 	// Save original values
 	oldURL := githubAPIURL
 	defer func() { githubAPIURL = oldURL }()
-	
+
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/repos/tobiase/worktree-utils/releases/latest" {
 			w.WriteHeader(404)
 			return
 		}
-		
+
 		// Return mock release
 		release := Release{
 			TagName:     "v1.2.0",
@@ -97,15 +97,15 @@ func TestCheckForUpdate(t *testing.T) {
 				},
 			},
 		}
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(release)
 	}))
 	defer server.Close()
-	
+
 	// Override the API URL for testing
 	githubAPIURL = fmt.Sprintf("%s/repos/tobiase/worktree-utils/releases/latest", server.URL)
-	
+
 	tests := []struct {
 		name           string
 		currentVersion string
@@ -133,11 +133,11 @@ func TestCheckForUpdate(t *testing.T) {
 			wantUpdate:     true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			release, hasUpdate, err := CheckForUpdate(tt.currentVersion)
-			
+
 			if tt.wantError {
 				if err == nil {
 					t.Error("Expected error but got none")
@@ -146,11 +146,11 @@ func TestCheckForUpdate(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				
+
 				if hasUpdate != tt.wantUpdate {
 					t.Errorf("Expected hasUpdate=%v, got %v", tt.wantUpdate, hasUpdate)
 				}
-				
+
 				if release == nil {
 					t.Error("Expected release to be non-nil")
 				} else if release.TagName != "v1.2.0" {
@@ -165,16 +165,16 @@ func TestCheckForUpdateErrors(t *testing.T) {
 	// Save original values
 	oldURL := githubAPIURL
 	oldClient := httpClient
-	defer func() { 
+	defer func() {
 		githubAPIURL = oldURL
 		httpClient = oldClient
 	}()
-	
+
 	tests := []struct {
-		name       string
-		handler    http.HandlerFunc
-		setupFunc  func()
-		wantError  string
+		name      string
+		handler   http.HandlerFunc
+		setupFunc func()
+		wantError string
 	}{
 		{
 			name: "server error",
@@ -205,22 +205,22 @@ func TestCheckForUpdateErrors(t *testing.T) {
 			wantError: "failed to fetch release info",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(tt.handler)
 			defer server.Close()
-			
+
 			// Override the API URL
 			githubAPIURL = fmt.Sprintf("%s/repos/tobiase/worktree-utils/releases/latest", server.URL)
-			
+
 			// Run setup if provided
 			if tt.setupFunc != nil {
 				tt.setupFunc()
 			}
-			
+
 			_, _, err := CheckForUpdate("v1.0.0")
-			
+
 			if err == nil {
 				t.Error("Expected error but got none")
 			} else if !strings.Contains(err.Error(), tt.wantError) {
@@ -238,7 +238,7 @@ func TestGetAssetName(t *testing.T) {
 		platformInfo.OS = oldOS
 		platformInfo.Arch = oldArch
 	}()
-	
+
 	tests := []struct {
 		name     string
 		goos     string
@@ -276,13 +276,13 @@ func TestGetAssetName(t *testing.T) {
 			expected: "wt_Windows_x86_64",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Override platform values
 			platformInfo.OS = tt.goos
 			platformInfo.Arch = tt.goarch
-			
+
 			result := getAssetName()
 			if result != tt.expected {
 				t.Errorf("Expected %s, got %s", tt.expected, result)
@@ -294,10 +294,10 @@ func TestGetAssetName(t *testing.T) {
 func TestDownloadAndInstall(t *testing.T) {
 	// Create a test binary content
 	testBinaryContent := []byte("#!/bin/sh\necho 'test binary v2.0.0'")
-	
+
 	// Create test archive
 	archive := createTestArchive(t, "wt-bin", testBinaryContent)
-	
+
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "test.tar.gz") {
@@ -308,7 +308,7 @@ func TestDownloadAndInstall(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	
+
 	tests := []struct {
 		name      string
 		release   *Release
@@ -360,7 +360,7 @@ func TestDownloadAndInstall(t *testing.T) {
 			errorMsg:  "failed to download update",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a temporary executable
@@ -369,22 +369,22 @@ func TestDownloadAndInstall(t *testing.T) {
 			if err := os.WriteFile(exePath, []byte("old binary"), 0755); err != nil {
 				t.Fatal(err)
 			}
-			
+
 			// Override executablePath
 			oldExecutable := executablePath
 			executablePath = func() (string, error) {
 				return exePath, nil
 			}
 			defer func() { executablePath = oldExecutable }()
-			
+
 			// Track progress calls
 			var progressCalls int
 			progressFunc := func(downloaded, total int64) {
 				progressCalls++
 			}
-			
+
 			err := DownloadAndInstall(tt.release, progressFunc)
-			
+
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("Expected error but got none for test %s", tt.name)
@@ -395,7 +395,7 @@ func TestDownloadAndInstall(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				
+
 				// Check binary was replaced
 				content, err := os.ReadFile(exePath)
 				if err != nil {
@@ -404,7 +404,7 @@ func TestDownloadAndInstall(t *testing.T) {
 				if !bytes.Equal(content, testBinaryContent) {
 					t.Error("Binary was not updated correctly")
 				}
-				
+
 				// Check progress was called
 				if progressCalls == 0 {
 					t.Error("Progress callback was not called")
@@ -459,7 +459,7 @@ func TestExtractAndInstall(t *testing.T) {
 			wantError: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create temporary executable
@@ -468,17 +468,17 @@ func TestExtractAndInstall(t *testing.T) {
 			if err := os.WriteFile(exePath, []byte("old binary"), 0755); err != nil {
 				t.Fatal(err)
 			}
-			
+
 			// Override executablePath
 			oldExecutable := executablePath
 			executablePath = func() (string, error) {
 				return exePath, nil
 			}
 			defer func() { executablePath = oldExecutable }()
-			
+
 			archivePath := tt.archiveFunc(t)
 			err := extractAndInstall(archivePath)
-			
+
 			if tt.wantError {
 				if err == nil {
 					t.Error("Expected error but got none")
@@ -489,7 +489,7 @@ func TestExtractAndInstall(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				
+
 				// Check binary was replaced
 				content, err := os.ReadFile(exePath)
 				if err != nil {
@@ -537,12 +537,12 @@ func TestProgressWriter(t *testing.T) {
 			expectedCalls: 1,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var calls int
 			var totalDownloaded int64
-			
+
 			pw := &ProgressWriter{
 				Total: tt.total,
 				OnProgress: func(downloaded, total int64) {
@@ -553,7 +553,7 @@ func TestProgressWriter(t *testing.T) {
 					}
 				},
 			}
-			
+
 			var expectedBytes int
 			for _, data := range tt.writes {
 				n, err := pw.Write(data)
@@ -565,11 +565,11 @@ func TestProgressWriter(t *testing.T) {
 				}
 				expectedBytes += len(data)
 			}
-			
+
 			if calls != tt.expectedCalls {
 				t.Errorf("Expected %d progress calls, got %d", tt.expectedCalls, calls)
 			}
-			
+
 			if totalDownloaded != int64(expectedBytes) {
 				t.Errorf("Expected total downloaded %d, got %d", expectedBytes, totalDownloaded)
 			}
@@ -582,11 +582,11 @@ func TestProgressWriterNilCallback(t *testing.T) {
 		Total:      100,
 		OnProgress: nil,
 	}
-	
+
 	// Should not panic
 	data := []byte("test data")
 	n, err := pw.Write(data)
-	
+
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -621,7 +621,7 @@ func TestCalculateChecksum(t *testing.T) {
 			expectedHash: "9247fbe7e59629112c3950ac4b7d24d207bce105f59fa316649af04f3eaf2405",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create temp file
@@ -629,9 +629,9 @@ func TestCalculateChecksum(t *testing.T) {
 			if err := os.WriteFile(tempFile, tt.content, 0644); err != nil {
 				t.Fatal(err)
 			}
-			
+
 			hash, err := CalculateChecksum(tempFile)
-			
+
 			if tt.wantError {
 				if err == nil {
 					t.Error("Expected error but got none")
@@ -662,7 +662,7 @@ func TestCalculateChecksumErrors(t *testing.T) {
 			filepath: t.TempDir(),
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := CalculateChecksum(tt.filepath)
@@ -675,7 +675,7 @@ func TestCalculateChecksumErrors(t *testing.T) {
 
 func TestDownloadFile(t *testing.T) {
 	testContent := []byte("test file content")
-	
+
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -693,7 +693,7 @@ func TestDownloadFile(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	
+
 	tests := []struct {
 		name           string
 		url            string
@@ -722,16 +722,16 @@ func TestDownloadFile(t *testing.T) {
 			wantError: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			var progressCalled bool
-			
+
 			err := downloadFile(&buf, tt.url, tt.size, func(downloaded, total int64) {
 				progressCalled = true
 			})
-			
+
 			if tt.wantError {
 				if err == nil {
 					t.Error("Expected error but got none")
@@ -740,11 +740,11 @@ func TestDownloadFile(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				
+
 				if !bytes.Equal(buf.Bytes(), tt.expectedOutput) {
 					t.Error("Downloaded content doesn't match expected")
 				}
-				
+
 				if tt.wantProgress && !progressCalled {
 					t.Error("Progress callback was not called")
 				}

@@ -87,7 +87,7 @@ commands:
     description: "Go to dashboard"
     target: "apps/dashboard"
   api:
-    description: "Go to API"  
+    description: "Go to API"
     target: "services/api"
 ```
 

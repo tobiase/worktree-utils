@@ -101,11 +101,11 @@ User noted unexpected command behavior and suggested creating a test harness bef
 1. **Created comprehensive test infrastructure:**
    - Created test helper packages in `test/helpers/`:
      - `git.go` - Git repository creation and manipulation
-     - `filesystem.go` - File system test utilities  
+     - `filesystem.go` - File system test utilities
      - `command.go` - Command execution mocking and recording
-   
+
 2. **Implemented unit tests for worktree package:**
-   - Tests for `GetRepoRoot()`, `GetWorktreeBase()` 
+   - Tests for `GetRepoRoot()`, `GetWorktreeBase()`
    - Tests for `parseWorktrees()`, `List()`, `Go()`
    - Tests for `NewWorktree()`, `CopyEnvFile()`
    - Handle macOS `/private` symlink paths

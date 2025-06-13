@@ -134,7 +134,7 @@ This document evaluates the usability and ergonomics of the `wt` command-line in
 
 ### Immediate (No Breaking Changes)
 1. Add `wt ls` alias
-2. Add `wt switch` and `wt s` aliases  
+2. Add `wt switch` and `wt s` aliases
 3. Implement `wt help <cmd>`
 4. Add shell completions
 

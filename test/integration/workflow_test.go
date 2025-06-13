@@ -38,7 +38,7 @@ func TestCompleteWorkflow(t *testing.T) {
 		if !strings.Contains(output, "CD:") {
 			t.Errorf("Expected CD: prefix for new command, got: %s", output)
 		}
-		
+
 		// Verify worktree was created
 		worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
 		worktreePath := filepath.Join(worktreeBase, "feature-test")
@@ -89,10 +89,10 @@ func TestCompleteWorkflow(t *testing.T) {
 	t.Run("remove worktree", func(t *testing.T) {
 		// First go back to main to avoid removing current worktree
 		runCommand(t, binPath, "go", "main")
-		
+
 		// Now remove the feature worktree
 		_ = runCommand(t, binPath, "rm", "feature-test")
-		
+
 		// Verify it was removed
 		worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
 		worktreePath := filepath.Join(worktreeBase, "feature-test")
@@ -136,7 +136,7 @@ func TestEnvCopyWorkflow(t *testing.T) {
 
 	t.Run("copy env file to worktree", func(t *testing.T) {
 		output := runCommand(t, binPath, "env-copy", "feature-env")
-		
+
 		// Should show success message
 		if !strings.Contains(output, "Copied") {
 			t.Errorf("Expected success message, got: %s", output)
@@ -145,12 +145,12 @@ func TestEnvCopyWorkflow(t *testing.T) {
 		// Verify file was copied
 		worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
 		copiedEnv := filepath.Join(worktreeBase, "feature-env", ".env")
-		
+
 		content, err := os.ReadFile(copiedEnv)
 		if err != nil {
 			t.Errorf("Failed to read copied .env file: %v", err)
 		}
-		
+
 		if string(content) != envContent {
 			t.Errorf("Copied content doesn't match original")
 		}
@@ -160,7 +160,7 @@ func TestEnvCopyWorkflow(t *testing.T) {
 		// Create subdirectory with .env
 		subdir := filepath.Join(repo, "src", "api")
 		os.MkdirAll(subdir, 0755)
-		
+
 		subEnvContent := "SUBDIRECTORY_ENV=true\n"
 		subEnvPath := filepath.Join(subdir, ".env")
 		if err := os.WriteFile(subEnvPath, []byte(subEnvContent), 0644); err != nil {
@@ -169,13 +169,13 @@ func TestEnvCopyWorkflow(t *testing.T) {
 
 		// Change to subdirectory
 		os.Chdir(subdir)
-		
+
 		_ = runCommand(t, binPath, "env-copy", "feature-env")
-		
+
 		// Should maintain relative path
 		worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
 		copiedSubEnv := filepath.Join(worktreeBase, "feature-env", "src", "api", ".env")
-		
+
 		if _, err := os.Stat(copiedSubEnv); os.IsNotExist(err) {
 			t.Error("Subdirectory .env was not copied to correct location")
 		}
@@ -205,7 +205,7 @@ func TestProjectCommands(t *testing.T) {
 
 	t.Run("initialize project", func(t *testing.T) {
 		_ = runCommand(t, binPath, "project", "init", "testproject")
-		
+
 		// Verify config was created
 		configPath := filepath.Join(mockHome, ".config", "wt", "projects", "testproject.yaml")
 		if _, err := os.Stat(configPath); os.IsNotExist(err) {
@@ -341,4 +341,3 @@ func TestErrorHandling(t *testing.T) {
 		})
 	}
 }
-

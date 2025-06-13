@@ -27,10 +27,10 @@ func TestCommandAliases(t *testing.T) {
 	helpers.AddTestWorktree(t, repo, "test-branch")
 
 	tests := []struct {
-		name          string
-		args          []string
-		expectedLike  []string // Command it should behave like
-		checkOutput   func(t *testing.T, output string)
+		name         string
+		args         []string
+		expectedLike []string // Command it should behave like
+		checkOutput  func(t *testing.T, output string)
 	}{
 		{
 			name:         "ls alias for list",
@@ -97,7 +97,7 @@ func TestCommandAliases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			output := runCommand(t, binPath, tt.args...)
-			
+
 			if tt.checkOutput != nil {
 				tt.checkOutput(t, output)
 			}
@@ -105,13 +105,13 @@ func TestCommandAliases(t *testing.T) {
 			// If we have an expected equivalent command, run it and compare
 			if len(tt.expectedLike) > 0 {
 				expectedOutput := runCommand(t, binPath, tt.expectedLike...)
-				
+
 				// For commands that output paths, just check the prefix
 				if strings.HasPrefix(output, "CD:") && strings.HasPrefix(expectedOutput, "CD:") {
 					// Both are CD commands, that's enough
 					return
 				}
-				
+
 				// For other commands, outputs should be similar
 				if !strings.Contains(output, "CD:") && output != expectedOutput {
 					t.Errorf("Alias output differs from original command.\nAlias: %s\nOriginal: %s", output, expectedOutput)

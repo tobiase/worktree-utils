@@ -62,16 +62,16 @@ release:
   github:
     owner: tobiase
     name: worktree-utils
-  
+
   header: |
     ## Installation
 
     ### Quick install
-    
+
     ```bash
     curl -fsSL https://raw.githubusercontent.com/tobiase/worktree-utils/main/get.sh | sh
     ```
-    
+
     Or download specific platform archives below.
 
     ### Update existing installation

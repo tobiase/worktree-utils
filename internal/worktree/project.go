@@ -46,7 +46,7 @@ func NewWorktree(branch string, baseBranch string, cfg *config.Manager) (string,
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Use project-specific worktree base if configured
 	if cfg != nil && cfg.GetCurrentProject() != nil {
 		if projectBase := cfg.GetCurrentProject().Settings.WorktreeBase; projectBase != "" {
@@ -68,7 +68,7 @@ func NewWorktree(branch string, baseBranch string, cfg *config.Manager) (string,
 
 	// Create the worktree
 	args := []string{"-C", repo, "worktree", "add", worktreePath}
-	
+
 	if baseBranch != "" {
 		// Create new branch from base
 		args = append(args, "-b", branch, baseBranch)
@@ -141,7 +141,7 @@ func CopyEnvFile(targetBranch string, recursive bool) error {
 		// Copy single .env file
 		sourceEnv := filepath.Join(currentDir, ".env")
 		targetEnv := filepath.Join(targetDir, ".env")
-		
+
 		if _, err := os.Stat(sourceEnv); os.IsNotExist(err) {
 			return fmt.Errorf("no .env file found in current directory")
 		}

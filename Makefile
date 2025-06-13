@@ -30,6 +30,28 @@ install:
 test:
 	go test ./...
 
+# Run tests with coverage
+test-coverage:
+	go test -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Run linting
+lint:
+	golangci-lint run
+
+# Setup pre-commit hooks
+setup-hooks:
+	@echo "Installing pre-commit..."
+	@which pre-commit > /dev/null || pip install --user pre-commit
+	pre-commit install
+	pre-commit install --hook-type commit-msg
+	@echo "Pre-commit hooks installed successfully!"
+
+# Run pre-commit on all files
+lint-all:
+	pre-commit run --all-files
+
 # Clean build artifacts
 clean:
 	rm -f $(BINARY_NAME)

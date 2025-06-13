@@ -50,8 +50,8 @@ type Config struct {
 
 // Manager handles configuration loading and project detection
 type Manager struct {
-	configDir     string
-	globalConfig  *Config
+	configDir      string
+	globalConfig   *Config
 	currentProject *ProjectConfig
 }
 
@@ -174,7 +174,7 @@ func (m *Manager) SaveProjectConfig(project *ProjectConfig) error {
 	}
 
 	configPath := filepath.Join(projectsDir, project.Name+".yaml")
-	
+
 	data, err := yaml.Marshal(project)
 	if err != nil {
 		return err

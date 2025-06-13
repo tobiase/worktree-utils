@@ -16,7 +16,7 @@ func TestNewManager(t *testing.T) {
 
 	homeDir, _ := os.UserHomeDir()
 	expectedConfigDir := filepath.Join(homeDir, ".config", "wt")
-	
+
 	if manager.configDir != expectedConfigDir {
 		t.Errorf("Expected config dir %s, got %s", expectedConfigDir, manager.configDir)
 	}
@@ -53,15 +53,15 @@ settings:
 				if pc.Name != "myproject" {
 					t.Errorf("Expected name 'myproject', got '%s'", pc.Name)
 				}
-				
+
 				if len(pc.Match.Paths) != 2 {
 					t.Errorf("Expected 2 paths, got %d", len(pc.Match.Paths))
 				}
-				
+
 				if len(pc.Commands) != 2 {
 					t.Errorf("Expected 2 commands, got %d", len(pc.Commands))
 				}
-				
+
 				if pc.Settings.WorktreeBase != "/home/user/custom-worktrees" {
 					t.Errorf("Expected worktree_base '/home/user/custom-worktrees', got '%s'", pc.Settings.WorktreeBase)
 				}
@@ -87,15 +87,15 @@ commands:
 				if pc.Virtualenv == nil {
 					t.Fatal("Expected virtualenv config to be present")
 				}
-				
+
 				if pc.Virtualenv.Name != ".venv" {
 					t.Errorf("Expected virtualenv name '.venv', got '%s'", pc.Virtualenv.Name)
 				}
-				
+
 				if pc.Virtualenv.Python != "python3.11" {
 					t.Errorf("Expected python 'python3.11', got '%s'", pc.Virtualenv.Python)
 				}
-				
+
 				if !pc.Virtualenv.AutoCommands {
 					t.Error("Expected auto_commands to be true")
 				}
@@ -110,9 +110,9 @@ match:
 			wantErr: true,
 		},
 		{
-			name: "empty config",
+			name:        "empty config",
 			yamlContent: ``,
-			wantErr: false,
+			wantErr:     false,
 			check: func(t *testing.T, pc *ProjectConfig) {
 				if pc.Name != "" {
 					t.Errorf("Expected empty name, got '%s'", pc.Name)
@@ -238,14 +238,13 @@ func TestMatchesProject(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &Manager{}
 			got := manager.matchesProject(tt.project, tt.currentPath, tt.gitRemote)
-			
+
 			if got != tt.want {
 				t.Errorf("matchesProject() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
-
 
 func TestRegisterVirtualenvCommands(t *testing.T) {
 	tests := []struct {
@@ -264,7 +263,7 @@ func TestRegisterVirtualenvCommands(t *testing.T) {
 			},
 			check: func(t *testing.T, project *ProjectConfig) {
 				expectedCommands := []string{"venv", "mkvenv", "rmvenv"}
-				
+
 				for _, cmdName := range expectedCommands {
 					if cmd, ok := project.Commands[cmdName]; !ok {
 						t.Errorf("Expected virtualenv command '%s' to be registered", cmdName)
@@ -274,16 +273,16 @@ func TestRegisterVirtualenvCommands(t *testing.T) {
 						}
 					}
 				}
-				
+
 				// Check specific command targets
 				if venv, ok := project.Commands["venv"]; ok && venv.Target != "activate" {
 					t.Errorf("Expected venv target 'activate', got '%s'", venv.Target)
 				}
-				
+
 				if mkvenv, ok := project.Commands["mkvenv"]; ok && mkvenv.Target != "create" {
 					t.Errorf("Expected mkvenv target 'create', got '%s'", mkvenv.Target)
 				}
-				
+
 				if rmvenv, ok := project.Commands["rmvenv"]; ok && rmvenv.Target != "remove" {
 					t.Errorf("Expected rmvenv target 'remove', got '%s'", rmvenv.Target)
 				}
@@ -308,7 +307,7 @@ func TestRegisterVirtualenvCommands(t *testing.T) {
 				if len(project.Commands) != 4 { // 1 original + 3 virtualenv
 					t.Errorf("Expected 4 commands, got %d", len(project.Commands))
 				}
-				
+
 				// Original command should still exist
 				if _, ok := project.Commands["api"]; !ok {
 					t.Error("Original 'api' command was lost")
@@ -321,7 +320,7 @@ func TestRegisterVirtualenvCommands(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &Manager{}
 			manager.registerVirtualenvCommands(tt.project)
-			
+
 			if tt.check != nil {
 				tt.check(t, tt.project)
 			}
@@ -403,7 +402,7 @@ match:
 
 				// Create manager with test config dir
 				manager := &Manager{configDir: dir}
-				
+
 				// Load project
 				err := manager.LoadProject(tt.currentPath, tt.gitRemote)
 				if err != nil {
@@ -461,11 +460,11 @@ func TestGetCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd, exists := manager.GetCommand(tt.cmdName)
-			
+
 			if exists != tt.wantCmd {
 				t.Errorf("GetCommand() exists = %v, want %v", exists, tt.wantCmd)
 			}
-			
+
 			if tt.wantCmd && cmd != nil {
 				if cmd.Description != tt.wantDesc {
 					t.Errorf("GetCommand() description = %q, want %q", cmd.Description, tt.wantDesc)
@@ -492,7 +491,7 @@ func TestGetCommandNoProject(t *testing.T) {
 func TestSaveProjectConfig(t *testing.T) {
 	helpers.WithTempDir(t, func(dir string) {
 		manager := &Manager{configDir: dir}
-		
+
 		project := &ProjectConfig{
 			Name: "testproject",
 			Match: ProjectMatch{
@@ -509,31 +508,31 @@ func TestSaveProjectConfig(t *testing.T) {
 				WorktreeBase: "/home/user/test-worktrees",
 			},
 		}
-		
+
 		// Save project
 		err := manager.SaveProjectConfig(project)
 		if err != nil {
 			t.Fatalf("SaveProjectConfig() error = %v", err)
 		}
-		
+
 		// Verify file was created
 		configPath := filepath.Join(dir, "projects", "testproject.yaml")
 		helpers.AssertFileExists(t, configPath)
-		
+
 		// Load and verify content
 		loaded, err := manager.loadProjectConfig(configPath)
 		if err != nil {
 			t.Fatalf("Failed to load saved config: %v", err)
 		}
-		
+
 		if loaded.Name != project.Name {
 			t.Errorf("Loaded project name = %q, want %q", loaded.Name, project.Name)
 		}
-		
+
 		if len(loaded.Commands) != len(project.Commands) {
 			t.Errorf("Loaded project has %d commands, want %d", len(loaded.Commands), len(project.Commands))
 		}
-		
+
 		if loaded.Settings.WorktreeBase != project.Settings.WorktreeBase {
 			t.Errorf("Loaded worktree_base = %q, want %q", loaded.Settings.WorktreeBase, project.Settings.WorktreeBase)
 		}
@@ -576,9 +575,9 @@ func TestGetVirtualenvConfig(t *testing.T) {
 			manager := &Manager{
 				currentProject: tt.project,
 			}
-			
+
 			got := manager.GetVirtualenvConfig()
-			
+
 			if tt.want == nil {
 				if got != nil {
 					t.Error("Expected nil virtualenv config")

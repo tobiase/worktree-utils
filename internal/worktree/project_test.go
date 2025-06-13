@@ -34,7 +34,7 @@ func TestNewWorktree(t *testing.T) {
 				worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
 				worktreePath := filepath.Join(worktreeBase, branch)
 				helpers.AssertDirExists(t, worktreePath)
-				
+
 				// Check branch exists
 				output := helpers.GetGitOutput(t, repo, "branch", "--list", branch)
 				if output == "" {
@@ -90,12 +90,12 @@ func TestNewWorktree(t *testing.T) {
 				baseBranch = "HEAD"
 			}
 			_, err := NewWorktree(tt.branch, baseBranch, nil)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewWorktree() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr && tt.check != nil {
 				tt.check(t, repo, tt.branch)
 			}
@@ -120,10 +120,10 @@ func TestCopyEnvFile(t *testing.T) {
 			targetBranch: "feature-1",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				
+
 				// Create a worktree to copy to
 				helpers.AddTestWorktree(t, repo, "feature-1")
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(repo)
 				return repo, func() {
@@ -149,10 +149,10 @@ func TestCopyEnvFile(t *testing.T) {
 			targetBranch: "feature-2",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				
+
 				// Create a worktree to copy to
 				helpers.AddTestWorktree(t, repo, "feature-2")
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(repo)
 				return repo, func() {
@@ -165,7 +165,7 @@ func TestCopyEnvFile(t *testing.T) {
 				// When recursive=false, only .env is copied
 				worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
 				base := filepath.Join(worktreeBase, "feature-2")
-				
+
 				helpers.AssertFileContents(t, filepath.Join(base, ".env"), "MAIN_ENV=true\n")
 				// These files should NOT be copied when recursive=false
 				helpers.AssertFileNotExists(t, filepath.Join(base, ".env.local"))
@@ -180,14 +180,14 @@ func TestCopyEnvFile(t *testing.T) {
 			targetBranch: "feature-3",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				
+
 				// Create subdirectory structure
 				apiDir := filepath.Join(repo, "src", "api")
 				os.MkdirAll(apiDir, 0755)
-				
+
 				// Create a worktree to copy to
 				helpers.AddTestWorktree(t, repo, "feature-3")
-				
+
 				// Change to subdirectory
 				oldWd, _ := os.Getwd()
 				os.Chdir(apiDir)
@@ -210,10 +210,10 @@ func TestCopyEnvFile(t *testing.T) {
 			targetBranch: "feature-4",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				
+
 				// Create a worktree to copy to
 				helpers.AddTestWorktree(t, repo, "feature-4")
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(repo)
 				return repo, func() {
@@ -231,7 +231,7 @@ func TestCopyEnvFile(t *testing.T) {
 			targetBranch: "non-existent",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(repo)
 				return repo, func() {
@@ -250,10 +250,10 @@ func TestCopyEnvFile(t *testing.T) {
 			targetBranch: "feature-5",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
-				
+
 				// Create a worktree to copy to
 				helpers.AddTestWorktree(t, repo, "feature-5")
-				
+
 				oldWd, _ := os.Getwd()
 				os.Chdir(repo)
 				return repo, func() {
@@ -281,16 +281,15 @@ func TestCopyEnvFile(t *testing.T) {
 			helpers.CreateFiles(t, cwd, tt.sourceFiles)
 
 			err := CopyEnvFile(tt.targetBranch, false)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CopyEnvFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if !tt.wantErr && tt.check != nil {
 				tt.check(t, repo)
 			}
 		})
 	}
 }
-

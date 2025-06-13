@@ -29,11 +29,11 @@ var (
 
 // Release represents a GitHub release
 type Release struct {
-	TagName     string   `json:"tag_name"`
-	Name        string   `json:"name"`
-	Body        string   `json:"body"`
-	PublishedAt string   `json:"published_at"`
-	Assets      []Asset  `json:"assets"`
+	TagName     string  `json:"tag_name"`
+	Name        string  `json:"name"`
+	Body        string  `json:"body"`
+	PublishedAt string  `json:"published_at"`
+	Assets      []Asset `json:"assets"`
 }
 
 // Asset represents a release asset
@@ -156,18 +156,18 @@ var platformInfo = struct {
 func getAssetName() string {
 	os := platformInfo.OS
 	arch := platformInfo.Arch
-	
+
 	// Map to match GoReleaser output
 	if os == "darwin" {
 		// Universal binary for macOS
 		return "wt_Darwin_all"
 	}
-	
+
 	// For Linux, map architecture names
 	if arch == "amd64" {
 		arch = "x86_64"
 	}
-	
+
 	return fmt.Sprintf("wt_%s_%s", strings.Title(os), arch)
 }
 

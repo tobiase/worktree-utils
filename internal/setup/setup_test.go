@@ -377,22 +377,22 @@ func TestCheck(t *testing.T) {
 			}(),
 			setupFirst: true,
 			wantChecks: map[string]bool{
-				"Binary found":       true,
-				"Binary is executable": true,
+				"Binary found":           true,
+				"Binary is executable":   true,
 				"Config directory found": true,
-				"Init script found":  true,
-				"is in PATH":        true,
-				"wt configured":     true,
+				"Init script found":      true,
+				"is in PATH":             true,
+				"wt configured":          true,
 			},
 		},
 		{
 			name: "check no installation",
 			env:  newTestEnv(t),
 			wantChecks: map[string]bool{
-				"Binary not found":       true,
+				"Binary not found":           true,
 				"Config directory not found": true,
-				"Init script not found":  true,
-				"is not in PATH":        true,
+				"Init script not found":      true,
+				"is not in PATH":             true,
 			},
 		},
 		{
@@ -406,11 +406,11 @@ func TestCheck(t *testing.T) {
 				return env
 			}(),
 			wantChecks: map[string]bool{
-				"Binary found":       true,
+				"Binary found":               true,
 				"Config directory not found": true,
-				"Init script not found":  true,
-				"is not in PATH":    true,
-				"wt not configured": true,
+				"Init script not found":      true,
+				"is not in PATH":             true,
+				"wt not configured":          true,
 			},
 		},
 	}
@@ -475,13 +475,13 @@ func TestCopyBinary(t *testing.T) {
 				tempDir := t.TempDir()
 				source := filepath.Join(tempDir, "source")
 				target := filepath.Join(tempDir, "target")
-				
+
 				// Create source file
 				content := []byte("#!/bin/sh\necho test")
 				if err := os.WriteFile(source, content, 0644); err != nil {
 					t.Fatal(err)
 				}
-				
+
 				return source, target
 			},
 		},
@@ -499,12 +499,12 @@ func TestCopyBinary(t *testing.T) {
 				tempDir := t.TempDir()
 				source := filepath.Join(tempDir, "source")
 				target := filepath.Join(tempDir, "nonexistent", "dir", "target")
-				
+
 				// Create source file
 				if err := os.WriteFile(source, []byte("test"), 0644); err != nil {
 					t.Fatal(err)
 				}
-				
+
 				return source, target
 			},
 			wantError: true,
@@ -514,9 +514,9 @@ func TestCopyBinary(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			source, target := tt.setup(t)
-			
+
 			err := copyBinary(source, target)
-			
+
 			if tt.wantError {
 				if err == nil {
 					t.Error("Expected error but got none")
@@ -525,7 +525,7 @@ func TestCopyBinary(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				
+
 				// Check target exists and is executable
 				info, err := os.Stat(target)
 				if err != nil {
@@ -533,7 +533,7 @@ func TestCopyBinary(t *testing.T) {
 				} else if info.Mode()&0111 == 0 {
 					t.Error("Target file is not executable")
 				}
-				
+
 				// Check content matches
 				sourceContent, _ := os.ReadFile(source)
 				targetContent, _ := os.ReadFile(target)
@@ -592,7 +592,7 @@ func TestDetectShellConfigs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir := t.TempDir()
-			
+
 			// Create files
 			for file := range tt.files {
 				path := filepath.Join(tempDir, file)
@@ -600,26 +600,26 @@ func TestDetectShellConfigs(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			
+
 			// Set shell env
 			oldShell := os.Getenv("SHELL")
 			os.Setenv("SHELL", tt.shell)
 			defer os.Setenv("SHELL", oldShell)
-			
+
 			configs := detectShellConfigs(tempDir)
-			
+
 			// Check we got expected number of configs
 			if len(configs) != len(tt.expected) {
 				t.Errorf("Expected %d configs, got %d", len(tt.expected), len(configs))
 			}
-			
+
 			// For zsh, check prioritization
 			if strings.Contains(tt.shell, "zsh") && len(configs) > 0 {
 				if !strings.HasSuffix(configs[0], ".zshrc") {
 					t.Error("Expected .zshrc to be prioritized for zsh shell")
 				}
 			}
-			
+
 			// For bash, check prioritization
 			if strings.Contains(tt.shell, "bash") && len(configs) > 0 {
 				if !strings.HasSuffix(configs[0], ".bashrc") {
@@ -632,16 +632,16 @@ func TestDetectShellConfigs(t *testing.T) {
 
 func TestAddToShellConfig(t *testing.T) {
 	tests := []struct {
-		name         string
+		name           string
 		initialContent string
-		line         string
-		wantError    bool
-		checkContent func(t *testing.T, content string)
+		line           string
+		wantError      bool
+		checkContent   func(t *testing.T, content string)
 	}{
 		{
-			name:         "add to empty file",
+			name:           "add to empty file",
 			initialContent: "",
-			line:         "[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh",
+			line:           "[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh",
 			checkContent: func(t *testing.T, content string) {
 				if !strings.Contains(content, "worktree-utils") {
 					t.Error("Missing worktree-utils comment")
@@ -652,9 +652,9 @@ func TestAddToShellConfig(t *testing.T) {
 			},
 		},
 		{
-			name:         "add to existing file",
+			name:           "add to existing file",
 			initialContent: "# My bashrc\nexport PATH=$PATH:/usr/local/bin\n",
-			line:         "[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh",
+			line:           "[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh",
 			checkContent: func(t *testing.T, content string) {
 				if !strings.Contains(content, "My bashrc") {
 					t.Error("Original content was lost")
@@ -665,9 +665,9 @@ func TestAddToShellConfig(t *testing.T) {
 			},
 		},
 		{
-			name:         "already configured",
+			name:           "already configured",
 			initialContent: "# My bashrc\n# worktree-utils\n[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh\n",
-			line:         "[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh",
+			line:           "[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh",
 			checkContent: func(t *testing.T, content string) {
 				// Should not duplicate
 				count := strings.Count(content, "worktree-utils")
@@ -681,14 +681,14 @@ func TestAddToShellConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tempFile := filepath.Join(t.TempDir(), ".bashrc")
-			
+
 			// Create initial file
 			if err := os.WriteFile(tempFile, []byte(tt.initialContent), 0644); err != nil {
 				t.Fatal(err)
 			}
-			
+
 			err := addToShellConfig(tempFile, tt.line)
-			
+
 			if tt.wantError {
 				if err == nil {
 					t.Error("Expected error but got none")
@@ -697,13 +697,13 @@ func TestAddToShellConfig(t *testing.T) {
 				if err != nil {
 					t.Errorf("Unexpected error: %v", err)
 				}
-				
+
 				// Check final content
 				content, err := os.ReadFile(tempFile)
 				if err != nil {
 					t.Fatal(err)
 				}
-				
+
 				tt.checkContent(t, string(content))
 			}
 		})
@@ -746,13 +746,13 @@ func TestHasWtInit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tempFile := filepath.Join(t.TempDir(), ".bashrc")
-			
+
 			if err := os.WriteFile(tempFile, []byte(tt.content), 0644); err != nil {
 				t.Fatal(err)
 			}
-			
+
 			result := hasWtInit(tempFile)
-			
+
 			if result != tt.expected {
 				t.Errorf("Expected %v, got %v", tt.expected, result)
 			}
@@ -798,9 +798,9 @@ func TestIsInPath(t *testing.T) {
 			oldPath := os.Getenv("PATH")
 			os.Setenv("PATH", tt.pathEnv)
 			defer os.Setenv("PATH", oldPath)
-			
+
 			result := isInPath(tt.dir)
-			
+
 			if result != tt.expected {
 				t.Errorf("Expected %v, got %v", tt.expected, result)
 			}
@@ -815,7 +815,7 @@ func TestCheckBinaryExecutable(t *testing.T) {
 	tempDir := t.TempDir()
 	binDir := filepath.Join(tempDir, ".local", "bin")
 	os.MkdirAll(binDir, 0755)
-	
+
 	// Create a simple executable script
 	binPath := filepath.Join(binDir, "wt-bin")
 	script := `#!/bin/sh
@@ -824,11 +824,11 @@ if [ "$1" = "shell-init" ]; then
     exit 0
 fi
 exit 1`
-	
+
 	if err := os.WriteFile(binPath, []byte(script), 0755); err != nil {
 		t.Fatal(err)
 	}
-	
+
 	// Test that our mock executable works
 	cmd := exec.Command(binPath, "shell-init")
 	if err := cmd.Run(); err != nil {

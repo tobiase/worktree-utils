@@ -23,7 +23,7 @@ const shellWrapper = `# Shell function to handle CD: and EXEC: prefixes
 wt() {
   output=$("${WT_BIN:-wt-bin}" "$@" 2>&1)
   exit_code=$?
-  
+
   if [ $exit_code -eq 0 ]; then
     if [[ "$output" == "CD:"* ]]; then
       cd "${output#CD:}"
@@ -112,7 +112,7 @@ func main() {
 	case "go":
 		var path string
 		var err error
-		
+
 		if len(args) < 1 {
 			// No arguments - go to repository root
 			path, err = worktree.GetRepoRoot()
@@ -120,7 +120,7 @@ func main() {
 			// Go to specified worktree
 			path, err = worktree.Go(args[0])
 		}
-		
+
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 			os.Exit(1)
@@ -132,10 +132,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Usage: wt new <branch> [--base <branch>]\n")
 			os.Exit(1)
 		}
-		
+
 		branch := args[0]
 		baseBranch := ""
-		
+
 		// Parse flags
 		for i := 1; i < len(args); i++ {
 			if args[i] == "--base" && i+1 < len(args) {
@@ -143,7 +143,7 @@ func main() {
 				i++
 			}
 		}
-		
+
 		path, err := worktree.NewWorktree(branch, baseBranch, configMgr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
@@ -156,17 +156,17 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Usage: wt env-copy <branch> [--recursive]\n")
 			os.Exit(1)
 		}
-		
+
 		targetBranch := args[0]
 		recursive := false
-		
+
 		// Check for --recursive flag
 		for _, arg := range args[1:] {
 			if arg == "--recursive" {
 				recursive = true
 			}
 		}
-		
+
 		if err := worktree.CopyEnvFile(targetBranch, recursive); err != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 			os.Exit(1)
@@ -207,13 +207,13 @@ func handleNavigationCommand(navCmd *config.NavigationCommand) {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	targetPath := filepath.Join(repo, navCmd.Target)
 	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "wt: '%s' not found under repo\n", navCmd.Target)
 		os.Exit(1)
 	}
-	
+
 	fmt.Printf("CD:%s", targetPath)
 }
 
@@ -223,26 +223,26 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	venvConfig := configMgr.GetVirtualenvConfig()
 	if venvConfig == nil {
 		fmt.Fprintf(os.Stderr, "wt: virtualenv not configured for this project\n")
 		os.Exit(1)
 	}
-	
+
 	// Default values
 	venvName := venvConfig.Name
 	if venvName == "" {
 		venvName = ".venv"
 	}
-	
+
 	python := venvConfig.Python
 	if python == "" {
 		python = "python3"
 	}
-	
+
 	venvPath := filepath.Join(repo, venvName)
-	
+
 	switch navCmd.Target {
 	case "activate":
 		// Check if virtualenv exists
@@ -254,14 +254,14 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 		}
 		// Output EXEC command to activate virtualenv
 		fmt.Printf("EXEC:source %s", activateScript)
-		
+
 	case "create":
 		// Check if virtualenv already exists
 		if _, err := os.Stat(venvPath); err == nil {
 			fmt.Fprintf(os.Stderr, "wt: virtualenv already exists at %s\n", venvPath)
 			os.Exit(1)
 		}
-		
+
 		// Create virtualenv
 		fmt.Printf("Creating virtualenv at %s...\n", venvPath)
 		if err := worktree.RunCommand(python, "-m", "venv", venvPath); err != nil {
@@ -269,14 +269,14 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 			os.Exit(1)
 		}
 		fmt.Println("Virtualenv created successfully")
-		
+
 	case "remove":
 		// Check if virtualenv exists
 		if _, err := os.Stat(venvPath); os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "wt: virtualenv not found at %s\n", venvPath)
 			os.Exit(1)
 		}
-		
+
 		// Remove virtualenv
 		fmt.Printf("Removing virtualenv at %s...\n", venvPath)
 		if err := os.RemoveAll(venvPath); err != nil {
@@ -284,7 +284,7 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 			os.Exit(1)
 		}
 		fmt.Println("Virtualenv removed successfully")
-		
+
 	default:
 		fmt.Fprintf(os.Stderr, "wt: unknown virtualenv action '%s'\n", navCmd.Target)
 		os.Exit(1)
@@ -306,20 +306,20 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 			fmt.Fprintf(os.Stderr, "Usage: wt project init <project-name>\n")
 			os.Exit(1)
 		}
-		
+
 		projectName := subargs[0]
 		cwd, err := os.Getwd()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wt: failed to get current directory: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		repo, err := worktree.GetRepoRoot()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		// Create project config
 		project := &config.ProjectConfig{
 			Name: projectName,
@@ -328,24 +328,24 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 			},
 			Commands: make(map[string]config.NavigationCommand),
 		}
-		
+
 		// Get git remote if available
 		if remote, err := worktree.GetGitRemote(); err == nil && remote != "" {
 			project.Match.Remotes = []string{remote}
 		}
-		
+
 		// Get worktree base
 		if base, err := worktree.GetWorktreeBase(); err == nil {
 			project.Settings.WorktreeBase = base
 			// Add worktree paths
 			project.Match.Paths = append(project.Match.Paths, filepath.Join(base, "*"))
 		}
-		
+
 		if err := configMgr.SaveProjectConfig(project); err != nil {
 			fmt.Fprintf(os.Stderr, "wt: failed to save project config: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Printf("Project '%s' initialized at %s\n", projectName, cwd)
 		fmt.Printf("Config saved to: %s/projects/%s.yaml\n", configMgr.GetConfigDir(), projectName)
 
@@ -380,7 +380,7 @@ func handleSetupCommand(args []string) {
 			fmt.Fprintf(os.Stderr, "Failed to get executable path: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		if err := setup.Setup(binaryPath); err != nil {
 			fmt.Fprintf(os.Stderr, "Setup failed: %v\n", err)
 			os.Exit(1)
@@ -419,13 +419,13 @@ Other commands:
 		cwd, _ := os.Getwd()
 		gitRemote, _ := worktree.GetGitRemote()
 		configMgr.LoadProject(cwd, gitRemote)
-		
+
 		if project := configMgr.GetCurrentProject(); project != nil {
 			if len(project.Commands) > 0 {
 				// Separate commands by type
 				var navCommands []string
 				var venvCommands []string
-				
+
 				for name, cmd := range project.Commands {
 					if cmd.Type == "virtualenv" {
 						venvCommands = append(venvCommands, name)
@@ -433,11 +433,11 @@ Other commands:
 						navCommands = append(navCommands, name)
 					}
 				}
-				
+
 				// Sort both lists
 				sort.Strings(navCommands)
 				sort.Strings(venvCommands)
-				
+
 				// Show navigation commands
 				if len(navCommands) > 0 {
 					usage += fmt.Sprintf("\n\nProject '%s' navigation:", project.Name)
@@ -446,7 +446,7 @@ Other commands:
 						usage += fmt.Sprintf("\n  %-18s %s", name, cmd.Description)
 					}
 				}
-				
+
 				// Show virtualenv commands
 				if len(venvCommands) > 0 {
 					usage += fmt.Sprintf("\n\nProject '%s' virtualenv:", project.Name)
@@ -466,7 +466,7 @@ func handleUpdateCommand(args []string) {
 	// Parse flags
 	checkOnly := false
 	force := false
-	
+
 	for _, arg := range args {
 		switch arg {
 		case "--check":
@@ -503,7 +503,7 @@ func handleUpdateCommand(args []string) {
 
 	// Download and install update
 	fmt.Println("\nDownloading update...")
-	
+
 	var lastProgress int
 	err = update.DownloadAndInstall(release, func(downloaded, total int64) {
 		progress := int(float64(downloaded) / float64(total) * 100)
@@ -512,16 +512,16 @@ func handleUpdateCommand(args []string) {
 			lastProgress = progress
 		}
 	})
-	
+
 	fmt.Println() // New line after progress
-	
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: update failed: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Printf("✓ Successfully updated to %s\n", release.TagName)
-	
+
 	if release.Body != "" {
 		fmt.Println("\nChanges in this version:")
 		fmt.Println(release.Body)

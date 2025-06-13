@@ -39,7 +39,7 @@ check_requirements() {
     if ! command -v curl >/dev/null 2>&1; then
         error "curl is required but not installed"
     fi
-    
+
     if ! command -v tar >/dev/null 2>&1; then
         error "tar is required but not installed"
     fi
@@ -49,7 +49,7 @@ check_requirements() {
 detect_platform() {
     OS=$(uname -s)
     ARCH=$(uname -m)
-    
+
     case "$OS" in
         Darwin)
             PLATFORM="Darwin_all"
@@ -71,7 +71,7 @@ detect_platform() {
             error "Unsupported operating system: $OS"
             ;;
     esac
-    
+
     info "Detected platform: $PLATFORM"
 }
 
@@ -79,48 +79,48 @@ detect_platform() {
 install_wt() {
     # Create a temporary directory
     TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'wt-install')
-    
+
     # Ensure cleanup on exit
     trap 'rm -rf "$TEMP_DIR"' EXIT INT TERM
-    
+
     info "Downloading wt..."
-    
+
     # Get latest version from GitHub API
     VERSION=$(curl -fsSL https://api.github.com/repos/tobiase/worktree-utils/releases/latest | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
-    
+
     if [ -z "$VERSION" ]; then
         error "Failed to determine latest version"
     fi
-    
+
     info "Latest version: $VERSION"
-    
+
     # Construct download URL with version (strip 'v' prefix for asset name)
     VERSION_NO_V=${VERSION#v}
     URL="https://github.com/tobiase/worktree-utils/releases/download/${VERSION}/wt_${VERSION_NO_V}_${PLATFORM}.tar.gz"
-    
+
     cd "$TEMP_DIR"
-    
+
     # Download with progress indicator
     if ! curl -fL# "$URL" -o wt.tar.gz; then
         error "Failed to download wt from: $URL"
     fi
-    
+
     info "Extracting..."
     # List what will be extracted to get the directory name
     EXTRACT_DIR=$(tar tzf wt.tar.gz | head -1 | cut -d'/' -f1)
-    
+
     if [ -z "$EXTRACT_DIR" ]; then
         error "Could not determine archive structure"
     fi
-    
+
     if ! tar xzf wt.tar.gz; then
         error "Failed to extract archive"
     fi
-    
+
     if [ ! -d "$EXTRACT_DIR" ]; then
         error "Expected directory '$EXTRACT_DIR' not found after extraction"
     fi
-    
+
     info "Running setup..."
     # The binary might be named 'worktree-utils' or 'wt-bin'
     if [ -f "$EXTRACT_DIR/wt-bin" ]; then
@@ -130,13 +130,13 @@ install_wt() {
     else
         error "Could not find binary in $EXTRACT_DIR"
     fi
-    
+
     if ! "$BINARY" setup; then
         error "Setup failed"
     fi
-    
+
     cd - >/dev/null 2>&1 || true
-    
+
     printf "\n${GREEN}✓${NC} wt has been successfully installed!\n\n"
     printf "To get started, either:\n"
     printf "  • Restart your shell, or\n"
@@ -147,7 +147,7 @@ install_wt() {
 # Main
 main() {
     printf "\n${GREEN}wt${NC} - Git Worktree Manager installer\n\n"
-    
+
     check_requirements
     detect_platform
     install_wt

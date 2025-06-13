@@ -26,11 +26,11 @@ func Setup(currentBinaryPath string) error {
 	// Ensure directories exist
 	binDir := filepath.Join(homeDir, ".local", "bin")
 	configDir := filepath.Join(homeDir, ".config", "wt")
-	
+
 	if err := os.MkdirAll(binDir, 0755); err != nil {
 		return fmt.Errorf("failed to create bin directory: %v", err)
 	}
-	
+
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %v", err)
 	}
@@ -54,7 +54,7 @@ func Setup(currentBinaryPath string) error {
 	}
 
 	initLine := fmt.Sprintf("[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh")
-	
+
 	for _, configFile := range shellConfigs {
 		if err := addToShellConfig(configFile, initLine); err != nil {
 			fmt.Printf("Warning: failed to update %s: %v\n", configFile, err)
@@ -123,7 +123,7 @@ func Check() error {
 		fmt.Printf("✗ Binary not found at %s\n", binPath)
 	} else {
 		fmt.Printf("✓ Binary found at %s\n", binPath)
-		
+
 		// Check if executable
 		if err := exec.Command(binPath, "shell-init").Run(); err != nil {
 			fmt.Printf("✗ Binary is not executable\n")
@@ -261,7 +261,7 @@ func addToShellConfig(configFile, line string) error {
 	if _, err := file.WriteString("\n# worktree-utils\n"); err != nil {
 		return err
 	}
-	
+
 	if _, err := file.WriteString(line + "\n"); err != nil {
 		return err
 	}
@@ -280,9 +280,9 @@ func hasWtInit(configFile string) bool {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.Contains(line, "worktree-utils") || 
-		   strings.Contains(line, "~/.config/wt/init.sh") ||
-		   strings.Contains(line, "wt-bin shell-init") {
+		if strings.Contains(line, "worktree-utils") ||
+			strings.Contains(line, "~/.config/wt/init.sh") ||
+			strings.Contains(line, "wt-bin shell-init") {
 			return true
 		}
 	}
@@ -294,12 +294,12 @@ func hasWtInit(configFile string) bool {
 func isInPath(dir string) bool {
 	pathEnv := os.Getenv("PATH")
 	paths := filepath.SplitList(pathEnv)
-	
+
 	for _, p := range paths {
 		if p == dir {
 			return true
 		}
 	}
-	
+
 	return false
 }
