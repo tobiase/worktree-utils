@@ -112,7 +112,10 @@ func DownloadAndInstall(release *Release, onProgress func(downloaded, total int6
 	assetName := getAssetName()
 	var asset *Asset
 	for _, a := range release.Assets {
-		if a.Name == assetName || a.Name == assetName+".tar.gz" {
+		// Check for exact match, with .tar.gz extension, or with version prefix
+		if a.Name == assetName ||
+			a.Name == assetName+".tar.gz" ||
+			strings.Contains(a.Name, assetName+".tar.gz") {
 			asset = &a
 			break
 		}
