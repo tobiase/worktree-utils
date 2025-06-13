@@ -16,9 +16,15 @@ import (
 	"time"
 )
 
-const (
+const userAgent = "wt-updater"
+
+var (
+	// githubAPIURL can be overridden for testing
 	githubAPIURL = "https://api.github.com/repos/tobiase/worktree-utils/releases/latest"
-	userAgent    = "wt-updater"
+	// httpClient can be overridden for testing
+	httpClient = &http.Client{
+		Timeout: 10 * time.Second,
+	}
 )
 
 // Release represents a GitHub release
@@ -72,9 +78,7 @@ func CheckForUpdate(currentVersion string) (*Release, bool, error) {
 
 // getLatestRelease fetches the latest release information from GitHub
 func getLatestRelease() (*Release, error) {
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
+	client := httpClient
 
 	req, err := http.NewRequest("GET", githubAPIURL, nil)
 	if err != nil {
@@ -139,10 +143,19 @@ func DownloadAndInstall(release *Release, onProgress func(downloaded, total int6
 	return nil
 }
 
+// platformInfo provides OS and architecture info (can be overridden for testing)
+var platformInfo = struct {
+	OS   string
+	Arch string
+}{
+	OS:   runtime.GOOS,
+	Arch: runtime.GOARCH,
+}
+
 // getAssetName returns the expected asset name for the current platform
 func getAssetName() string {
-	os := runtime.GOOS
-	arch := runtime.GOARCH
+	os := platformInfo.OS
+	arch := platformInfo.Arch
 	
 	// Map to match GoReleaser output
 	if os == "darwin" {
@@ -184,10 +197,13 @@ func downloadFile(dst io.Writer, url string, size int64, onProgress func(downloa
 	return err
 }
 
+// executablePath is a wrapper for os.Executable that can be overridden for testing
+var executablePath = os.Executable
+
 // extractAndInstall extracts the binary from the tarball and installs it
 func extractAndInstall(tarPath string) error {
 	// Get current executable path
-	exePath, err := os.Executable()
+	exePath, err := executablePath()
 	if err != nil {
 		return fmt.Errorf("failed to get executable path: %w", err)
 	}
