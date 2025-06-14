@@ -13,7 +13,7 @@ func GenerateZshCompletion(configMgr *config.Manager) string {
 
 	var builder strings.Builder
 
-	// Header
+	// Header with proper compdef directive
 	builder.WriteString("#compdef wt\n")
 	builder.WriteString("# Zsh completion for wt (worktree-utils)\n")
 	builder.WriteString("# Generated automatically - do not edit manually\n\n")
@@ -58,10 +58,6 @@ func GenerateZshCompletion(configMgr *config.Manager) string {
 
 	// Helper functions
 	generateZshHelperFunctions(&builder, data)
-
-	// Initialize completion
-	builder.WriteString("# Initialize completion\n")
-	builder.WriteString("_wt \"$@\"\n")
 
 	return builder.String()
 }
@@ -183,7 +179,4 @@ func generateZshHelperFunctions(builder *strings.Builder, data *CompletionData) 
 	builder.WriteString("    _describe 'update options' options\n")
 	builder.WriteString("}\n\n")
 
-	// Register the completion function
-	builder.WriteString("# Register completion\n")
-	builder.WriteString("compdef _wt wt\n")
 }

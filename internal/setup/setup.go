@@ -20,8 +20,20 @@ if command -v wt-bin &> /dev/null; then
   # Load shell completion if available
   if [[ -n "$BASH_VERSION" ]] && [[ -f ~/.config/wt/completion.bash ]]; then
     source ~/.config/wt/completion.bash
-  elif [[ -n "$ZSH_VERSION" ]] && [[ -f ~/.config/wt/completion.zsh ]]; then
-    source ~/.config/wt/completion.zsh
+  elif [[ -n "$ZSH_VERSION" ]]; then
+    # Add wt completion directory to fpath
+    fpath=(~/.config/wt/completions $fpath)
+
+    # Ensure completion system is initialized
+    if ! command -v compinit >/dev/null 2>&1; then
+      autoload -Uz compinit
+      compinit
+    fi
+
+    # Load completion if available
+    if [[ -f ~/.config/wt/completions/_wt ]]; then
+      autoload -Uz _wt
+    fi
   fi
 fi
 `
@@ -67,7 +79,15 @@ func generateCompletionFiles(configDir string) error {
 
 	// Generate zsh completion
 	zshCompletion := completion.GenerateZshCompletion(configMgr)
-	zshPath := filepath.Join(configDir, "completion.zsh")
+
+	// Create zsh completions directory
+	zshCompletionDir := filepath.Join(configDir, "completions")
+	if err := os.MkdirAll(zshCompletionDir, 0755); err != nil {
+		return fmt.Errorf("failed to create zsh completion directory: %v", err)
+	}
+
+	// Write zsh completion with proper name
+	zshPath := filepath.Join(zshCompletionDir, "_wt")
 	if err := os.WriteFile(zshPath, []byte(zshCompletion), 0644); err != nil {
 		return fmt.Errorf("failed to write zsh completion: %v", err)
 	}
@@ -160,6 +180,11 @@ func SetupWithOptions(currentBinaryPath string, completionOpts CompletionOptions
 	// Install completion scripts
 	if err := installCompletion(configDir, completionOpts); err != nil {
 		fmt.Printf("Warning: failed to install completion: %v\n", err)
+	}
+
+	// Validate and repair installation
+	if err := validateAndRepairInstallation(targetBinary, configDir); err != nil {
+		fmt.Printf("Warning: installation validation failed: %v\n", err)
 	}
 
 	// Check if ~/.local/bin is in PATH
@@ -407,6 +432,156 @@ func isInPath(dir string) bool {
 
 	for _, p := range paths {
 		if p == dir {
+			return true
+		}
+	}
+
+	return false
+}
+
+// validateAndRepairInstallation checks the installation and fixes common issues
+func validateAndRepairInstallation(binaryPath, configDir string) error {
+	var issues []string
+	var repaired []string
+
+	// Check binary issues
+	binaryIssues, binaryRepairs := checkBinary(binaryPath)
+	issues = append(issues, binaryIssues...)
+	repaired = append(repaired, binaryRepairs...)
+
+	// Check configuration files
+	configIssues, configRepairs := checkConfigFiles(configDir)
+	issues = append(issues, configIssues...)
+	repaired = append(repaired, configRepairs...)
+
+	// Check shell configurations
+	shellIssues := checkShellConfigs()
+	issues = append(issues, shellIssues...)
+
+	// Report results
+	reportValidationResults(issues, repaired)
+	return nil
+}
+
+// checkBinary validates the binary installation
+func checkBinary(binaryPath string) ([]string, []string) {
+	var issues []string
+	var repaired []string
+
+	// Check if binary exists and is not empty
+	if stat, err := os.Stat(binaryPath); err != nil {
+		issues = append(issues, "binary not found")
+	} else if stat.Size() == 0 {
+		issues = append(issues, "binary is empty")
+	}
+
+	// Check if binary is executable
+	if _, err := exec.LookPath(binaryPath); err != nil {
+		issues = append(issues, "binary not executable")
+		// Try to fix permissions
+		if err := os.Chmod(binaryPath, 0755); err == nil {
+			repaired = append(repaired, "fixed binary permissions")
+		}
+	}
+
+	// Test if binary works
+	cmd := exec.Command(binaryPath, "version")
+	if err := cmd.Run(); err != nil {
+		issues = append(issues, "binary does not run correctly")
+	}
+
+	return issues, repaired
+}
+
+// checkConfigFiles validates configuration files
+func checkConfigFiles(configDir string) ([]string, []string) {
+	var issues []string
+	var repaired []string
+
+	// Check init script exists
+	initPath := filepath.Join(configDir, "init.sh")
+	if _, err := os.Stat(initPath); err != nil {
+		issues = append(issues, "init script missing")
+		// Regenerate init script
+		if err := os.WriteFile(initPath, []byte(initScript), 0644); err == nil {
+			repaired = append(repaired, "regenerated init script")
+		}
+	}
+
+	// Check completion files exist and are not corrupted
+	bashCompletionPath := filepath.Join(configDir, "completion.bash")
+	zshCompletionPath := filepath.Join(configDir, "completions", "_wt")
+
+	completionIssues := false
+	if stat, err := os.Stat(bashCompletionPath); err != nil || stat.Size() < 100 {
+		completionIssues = true
+	}
+	if stat, err := os.Stat(zshCompletionPath); err != nil || stat.Size() < 100 {
+		completionIssues = true
+	}
+
+	if completionIssues {
+		issues = append(issues, "completion files missing or corrupted")
+		// Regenerate completion files
+		if err := generateCompletionFiles(configDir); err == nil {
+			repaired = append(repaired, "regenerated completion files")
+		}
+	}
+
+	return issues, repaired
+}
+
+// checkShellConfigs validates shell configuration files
+func checkShellConfigs() []string {
+	var issues []string
+
+	homeDir, _ := os.UserHomeDir()
+	shellConfigs := detectShellConfigs(homeDir)
+	for _, configFile := range shellConfigs {
+		if hasOldWtConfig(configFile) {
+			issues = append(issues, fmt.Sprintf("old wt configuration in %s", configFile))
+		}
+	}
+
+	return issues
+}
+
+// reportValidationResults prints validation and repair results
+func reportValidationResults(issues, repaired []string) {
+	if len(issues) > 0 {
+		fmt.Printf("Installation issues detected:\n")
+		for _, issue := range issues {
+			fmt.Printf("  - %s\n", issue)
+		}
+	}
+
+	if len(repaired) > 0 {
+		fmt.Printf("Automatically repaired:\n")
+		for _, repair := range repaired {
+			fmt.Printf("  ✓ %s\n", repair)
+		}
+	}
+
+	if len(issues) == 0 {
+		fmt.Printf("✓ Installation validated successfully\n")
+	}
+}
+
+// hasOldWtConfig checks if a shell config has old/problematic wt configuration
+func hasOldWtConfig(configFile string) bool {
+	file, err := os.Open(configFile)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Look for old shell function definitions or problematic patterns
+		if strings.Contains(line, "wt() {") ||
+			strings.Contains(line, "function wt") ||
+			strings.Contains(line, "_arguments:comparguments") {
 			return true
 		}
 	}
