@@ -102,66 +102,93 @@ func generateCompletionFilesForShells(configDir string, shells []string) error {
 	return nil
 }
 
+// shellConfig represents a shell configuration file and its completion
+type shellConfig struct {
+	path           string
+	completionLine string
+	shellName      string
+}
+
 // installCompletion handles completion installation based on options
 func installCompletion(configDir string, opts CompletionOptions) error {
-	if !opts.Install {
+	if !opts.Install || opts.Shell == "none" {
 		return nil
 	}
 
-	if opts.Shell == "none" {
-		return nil
+	if err := validateShellOption(opts.Shell); err != nil {
+		return err
 	}
 
-	// Get shell config files to modify
-	homeDir, err := os.UserHomeDir()
+	configs, err := getShellConfigs(opts.Shell)
 	if err != nil {
 		return err
 	}
 
-	var configFiles []string
-	var completionLines []string
+	return installCompletionToConfigs(configs)
+}
 
-	// Determine which shells to install for and their config files
-	if opts.Shell == shellAuto || opts.Shell == shellZsh {
-		zshrc := filepath.Join(homeDir, ".zshrc")
-		if _, err := os.Stat(zshrc); err == nil {
-			configFiles = append(configFiles, zshrc)
-			completionLines = append(completionLines, "source <(wt-bin completion zsh)")
+// validateShellOption checks if the shell option is supported
+func validateShellOption(shell string) error {
+	validShells := []string{shellAuto, shellBash, shellZsh}
+	for _, validShell := range validShells {
+		if shell == validShell {
+			return nil
+		}
+	}
+	return fmt.Errorf("unsupported shell: %s", shell)
+}
+
+// getShellConfigs returns shell configurations based on the shell option
+func getShellConfigs(shellOpt string) ([]shellConfig, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	var configs []shellConfig
+
+	if shellOpt == shellAuto || shellOpt == shellZsh {
+		if config := tryGetShellConfig(homeDir, ".zshrc", "source <(wt-bin completion zsh)", "zsh"); config != nil {
+			configs = append(configs, *config)
 		}
 	}
 
-	if opts.Shell == shellAuto || opts.Shell == shellBash {
-		bashrc := filepath.Join(homeDir, ".bashrc")
-		if _, err := os.Stat(bashrc); err == nil {
-			configFiles = append(configFiles, bashrc)
-			completionLines = append(completionLines, "source <(wt-bin completion bash)")
+	if shellOpt == shellAuto || shellOpt == shellBash {
+		if config := tryGetShellConfig(homeDir, ".bashrc", "source <(wt-bin completion bash)", "bash"); config != nil {
+			configs = append(configs, *config)
 		}
 	}
 
-	if opts.Shell != "auto" && opts.Shell != shellBash && opts.Shell != shellZsh {
-		return fmt.Errorf("unsupported shell: %s", opts.Shell)
+	return configs, nil
+}
+
+// tryGetShellConfig creates a shell config if the file exists
+func tryGetShellConfig(homeDir, filename, completionLine, shellName string) *shellConfig {
+	path := filepath.Join(homeDir, filename)
+	if _, err := os.Stat(path); err == nil {
+		return &shellConfig{
+			path:           path,
+			completionLine: completionLine,
+			shellName:      shellName,
+		}
 	}
+	return nil
+}
 
-	// Add completion lines to shell configs
-	var installedShells []string
-	for i, configFile := range configFiles {
-		completionLine := completionLines[i]
+// installCompletionToConfigs installs completion to shell config files
+func installCompletionToConfigs(configs []shellConfig) error {
+	installedShells := make([]string, 0, len(configs))
 
-		// Check if completion is already configured
-		if hasCompletionConfig(configFile) {
+	for _, config := range configs {
+		if hasCompletionConfig(config.path) {
 			continue
 		}
 
-		// Add completion line
-		if err := addToShellConfig(configFile, completionLine); err != nil {
-			return fmt.Errorf("failed to add completion to %s: %v", configFile, err)
+		if err := addToShellConfig(config.path, config.completionLine); err != nil {
+			return fmt.Errorf("failed to add completion to %s: %v", config.path, err)
 		}
 
-		if strings.Contains(configFile, ".zshrc") {
-			installedShells = append(installedShells, "zsh")
-		} else if strings.Contains(configFile, ".bashrc") {
-			installedShells = append(installedShells, "bash")
-		}
+		installedShells = append(installedShells, config.shellName)
 	}
 
 	if len(installedShells) > 0 {
