@@ -113,7 +113,8 @@ func installCompletion(configDir string, opts CompletionOptions) error {
 	// Determine which shell(s) to install for
 	shells := []string{}
 	if opts.Shell == "auto" {
-		shells = append(shells, detectUserShell())
+		// Auto means install for all supported shells
+		shells = []string{shellBash, shellZsh}
 	} else if opts.Shell == shellBash || opts.Shell == shellZsh {
 		shells = append(shells, opts.Shell)
 	} else if opts.Shell == "none" {
@@ -576,7 +577,8 @@ func getShellsForCompletion(completionOpts CompletionOptions) []string {
 	var shells []string
 
 	if completionOpts.Shell == "auto" {
-		shells = append(shells, detectUserShell())
+		// Auto means install for all supported shells
+		shells = []string{shellBash, shellZsh}
 	} else if completionOpts.Shell == shellBash || completionOpts.Shell == shellZsh {
 		shells = append(shells, completionOpts.Shell)
 	}

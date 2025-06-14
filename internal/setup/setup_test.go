@@ -915,7 +915,7 @@ func TestGenerateCompletionFiles(t *testing.T) {
 	}
 
 	// Check zsh completion file was created
-	zshPath := filepath.Join(configDir, "completion.zsh")
+	zshPath := filepath.Join(configDir, "completions", "_wt")
 	if _, err := os.Stat(zshPath); err != nil {
 		t.Errorf("Zsh completion file not created: %v", err)
 	}
@@ -959,7 +959,7 @@ func TestInstallCompletion(t *testing.T) {
 				Shell:   "auto",
 			},
 			wantErr:    false,
-			checkFiles: []string{"completion.bash", "completion.zsh"},
+			checkFiles: []string{"completion.bash", "completions/_wt"},
 		},
 		{
 			name: "install completion bash only",
@@ -968,7 +968,7 @@ func TestInstallCompletion(t *testing.T) {
 				Shell:   "bash",
 			},
 			wantErr:    false,
-			checkFiles: []string{"completion.bash", "completion.zsh"},
+			checkFiles: []string{"completion.bash"},
 		},
 		{
 			name: "install completion zsh only",
@@ -977,7 +977,7 @@ func TestInstallCompletion(t *testing.T) {
 				Shell:   "zsh",
 			},
 			wantErr:    false,
-			checkFiles: []string{"completion.bash", "completion.zsh"},
+			checkFiles: []string{"completions/_wt"},
 		},
 		{
 			name: "no completion installation",
@@ -1070,7 +1070,7 @@ func TestSetupWithCompletion(t *testing.T) {
 					t.Errorf("Bash completion not found: %v", err)
 				}
 
-				zshCompletion := filepath.Join(env.homeDir, ".config", "wt", "completion.zsh")
+				zshCompletion := filepath.Join(env.homeDir, ".config", "wt", "completions/_wt")
 				if _, err := os.Stat(zshCompletion); err != nil {
 					t.Errorf("Zsh completion not found: %v", err)
 				}
@@ -1084,7 +1084,7 @@ func TestSetupWithCompletion(t *testing.T) {
 				if !strings.Contains(string(content), "completion.bash") {
 					t.Error("Init script missing bash completion loading")
 				}
-				if !strings.Contains(string(content), "completion.zsh") {
+				if !strings.Contains(string(content), "completions/_wt") {
 					t.Error("Init script missing zsh completion loading")
 				}
 			},
@@ -1109,7 +1109,7 @@ func TestSetupWithCompletion(t *testing.T) {
 					t.Error("Bash completion should not exist when install=false")
 				}
 
-				zshCompletion := filepath.Join(env.homeDir, ".config", "wt", "completion.zsh")
+				zshCompletion := filepath.Join(env.homeDir, ".config", "wt", "completions/_wt")
 				if _, err := os.Stat(zshCompletion); !os.IsNotExist(err) {
 					t.Error("Zsh completion should not exist when install=false")
 				}
@@ -1187,7 +1187,7 @@ func TestCheckVerifiesCompletion(t *testing.T) {
 
 	// Test case where completion files are missing
 	bashCompletion := filepath.Join(env.homeDir, ".config", "wt", "completion.bash")
-	zshCompletion := filepath.Join(env.homeDir, ".config", "wt", "completion.zsh")
+	zshCompletion := filepath.Join(env.homeDir, ".config", "wt", "completions/_wt")
 
 	// Remove completion files
 	os.Remove(bashCompletion)

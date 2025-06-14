@@ -21,8 +21,8 @@ func TestSetupCompletionCommand(t *testing.T) {
 			name:         "setup with completion auto",
 			args:         []string{"setup", "--completion", "auto"},
 			expectError:  false,
-			expectOutput: []string{"✓ Setup complete!", "✓ Installed completion for:"},
-			expectFiles:  []string{".config/wt/completion.bash"},
+			expectOutput: []string{"✓ Setup complete!", "✓ Installed completion for: bash, zsh"},
+			expectFiles:  []string{".config/wt/completion.bash", ".config/wt/completions/_wt"},
 		},
 		{
 			name:         "setup with completion bash",
@@ -58,8 +58,8 @@ func TestSetupCompletionCommand(t *testing.T) {
 			name:         "setup default (with completion)",
 			args:         []string{"setup"},
 			expectError:  false,
-			expectOutput: []string{"✓ Setup complete!", "✓ Installed completion for:"},
-			expectFiles:  []string{".config/wt/completion.bash"},
+			expectOutput: []string{"✓ Setup complete!", "✓ Installed completion for: bash, zsh"},
+			expectFiles:  []string{".config/wt/completion.bash", ".config/wt/completions/_wt"},
 		},
 		{
 			name:         "setup with invalid completion option",
