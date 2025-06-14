@@ -141,10 +141,48 @@ gh issue create --title "Title" --body "Content with \`backticks\`"
 ```
 
 ### Release Workflow
+
+#### Semantic Versioning Guidelines
+
+Follow [SemVer](https://semver.org) strictly for version numbers (MAJOR.MINOR.PATCH):
+
+**MAJOR (X.0.0)** - Breaking changes:
+- Changes to command-line interface that break existing usage
+- Removal of commands or options
+- Changes to shell wrapper behavior
+- Changes to config file format that require migration
+
+**MINOR (0.X.0)** - New features (backward compatible):
+- New commands or subcommands
+- New command-line options
+- New project configuration features
+- New shell integration features
+
+**PATCH (0.0.X)** - Bug fixes and internal improvements:
+- Bug fixes that don't change user-facing behavior
+- Performance improvements
+- Code quality improvements (linting, refactoring)
+- Test additions and improvements
+- Documentation updates
+- CI/CD improvements
+
+#### Release Process
 - Tag pushes trigger the release workflow: `git tag v0.1.0 && git push origin v0.1.0`
 - If a release fails, delete and recreate the tag to retrigger
 - GoReleaser v2 requires different config syntax than v1
 - The `universal_binaries` section must be at the top level, not inside builds
+
+#### Examples of Version Bumps
+```bash
+# Bug fix: Fixed worktree path handling
+git tag v0.5.1
+
+# New feature: Added `wt status` command
+git tag v0.6.0
+
+# Breaking change: Changed config file format
+git tag v1.0.0
+```
 
 ## Development Workflow
 
