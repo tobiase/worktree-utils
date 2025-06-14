@@ -8,6 +8,7 @@ import (
 
 	"github.com/tobiase/worktree-utils/internal/completion"
 	"github.com/tobiase/worktree-utils/internal/config"
+	"github.com/tobiase/worktree-utils/internal/interactive"
 	"github.com/tobiase/worktree-utils/internal/setup"
 	"github.com/tobiase/worktree-utils/internal/update"
 	"github.com/tobiase/worktree-utils/internal/worktree"
@@ -18,6 +19,12 @@ var (
 	version = "dev"
 	commit  = "unknown"
 	date    = "unknown"
+)
+
+// Command flags
+const (
+	fuzzyFlag      = "--fuzzy"
+	fuzzyFlagShort = "-f"
 )
 
 // Command constants
@@ -47,8 +54,24 @@ wt() {
 
 func main() {
 	if len(os.Args) < 2 {
-		showUsage()
-		os.Exit(1)
+		// No command specified - try interactive command selection
+		if interactive.IsInteractive() {
+			selectedCommand, err := interactive.SelectCommandInteractively()
+			if err != nil {
+				if err == interactive.ErrUserCancelled {
+					fmt.Fprintf(os.Stderr, "wt: selection cancelled\n")
+					os.Exit(1)
+				}
+				// Fall back to showing usage if interactive selection fails
+				showUsage()
+				os.Exit(1)
+			}
+			// Set os.Args as if the user typed the command
+			os.Args = []string{os.Args[0], selectedCommand}
+		} else {
+			showUsage()
+			os.Exit(1)
+		}
 	}
 
 	// Handle help flags
@@ -82,6 +105,32 @@ func resolveCommandAlias(cmd string) string {
 		return alias
 	}
 	return cmd
+}
+
+// selectBranchInteractively handles interactive branch selection with consistent error handling
+func selectBranchInteractively(useFuzzy bool, usageMsg string) string {
+	branches, branchErr := worktree.GetAvailableBranches()
+	if branchErr != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", usageMsg)
+		os.Exit(1)
+	}
+
+	if interactive.ShouldUseFuzzy(len(branches), useFuzzy) {
+		selectedBranch, selectErr := worktree.SelectBranchInteractively()
+		if selectErr != nil {
+			if selectErr == interactive.ErrUserCancelled {
+				fmt.Fprintf(os.Stderr, "wt: selection cancelled\n")
+				os.Exit(1)
+			}
+			fmt.Fprintf(os.Stderr, "wt: %v\n", selectErr)
+			os.Exit(1)
+		}
+		return selectedBranch
+	}
+
+	fmt.Fprintf(os.Stderr, "%s\n", usageMsg)
+	os.Exit(1)
+	return "" // unreachable
 }
 
 func initializeConfig() *config.Manager {
@@ -151,11 +200,25 @@ func handleAddCommand(args []string, configMgr *config.Manager) {
 }
 
 func handleRemoveCommand(args []string) {
-	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Usage: wt rm <branch>\n")
-		os.Exit(1)
+	// Parse flags
+	var useFuzzy bool
+	var target string
+
+	for _, arg := range args {
+		if arg == fuzzyFlag || arg == fuzzyFlagShort {
+			useFuzzy = true
+		} else {
+			// First non-flag argument is the target
+			target = arg
+			break
+		}
 	}
-	if err := worktree.Remove(args[0]); err != nil {
+
+	if target == "" {
+		target = selectBranchInteractively(useFuzzy, "Usage: wt rm <branch>")
+	}
+
+	if err := worktree.Remove(target); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 		os.Exit(1)
 	}
@@ -165,10 +228,47 @@ func handleGoCommand(args []string) {
 	var path string
 	var err error
 
-	if len(args) < 1 {
-		path, err = worktree.GetRepoRoot()
-	} else {
-		path, err = worktree.Go(args[0])
+	// Parse flags
+	var useFuzzy bool
+	var target string
+
+	for _, arg := range args {
+		if arg == fuzzyFlag || arg == fuzzyFlagShort {
+			useFuzzy = true
+		} else {
+			// First non-flag argument is the target
+			target = arg
+			break
+		}
+	}
+
+	if target == "" {
+		// No target specified - check if we should use interactive selection
+		branches, branchErr := worktree.GetAvailableBranches()
+		if branchErr != nil {
+			// Fall back to repo root if we can't get branches
+			path, err = worktree.GetRepoRoot()
+		} else if interactive.ShouldUseFuzzy(len(branches), useFuzzy) {
+			// Use interactive selection
+			selectedBranch, selectErr := worktree.SelectBranchInteractively()
+			if selectErr != nil {
+				if selectErr == interactive.ErrUserCancelled {
+					fmt.Fprintf(os.Stderr, "wt: selection cancelled\n")
+					os.Exit(1)
+				}
+				fmt.Fprintf(os.Stderr, "wt: %v\n", selectErr)
+				os.Exit(1)
+			}
+			target = selectedBranch
+		} else {
+			// Fall back to repo root
+			path, err = worktree.GetRepoRoot()
+		}
+	}
+
+	// If we have a target, use it
+	if target != "" {
+		path, err = worktree.Go(target)
 	}
 
 	if err != nil {
@@ -205,27 +305,31 @@ func parseNewCommandArgs(args []string) (branch, baseBranch string) {
 }
 
 func handleEnvCopyCommand(args []string) {
-	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Usage: wt env-copy <branch> [--recursive]\n")
-		os.Exit(1)
+	// Parse flags
+	var useFuzzy bool
+	var target string
+	var recursive bool
+
+	for _, arg := range args {
+		if arg == fuzzyFlag || arg == fuzzyFlagShort {
+			useFuzzy = true
+		} else if arg == "--recursive" {
+			recursive = true
+		} else {
+			// First non-flag argument is the target
+			target = arg
+			break
+		}
 	}
 
-	targetBranch := args[0]
-	recursive := hasFlag(args[1:], "--recursive")
+	if target == "" {
+		target = selectBranchInteractively(useFuzzy, "Usage: wt env-copy <branch> [--recursive]")
+	}
 
-	if err := worktree.CopyEnvFile(targetBranch, recursive); err != nil {
+	if err := worktree.CopyEnvFile(target, recursive); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-func hasFlag(args []string, flag string) bool {
-	for _, arg := range args {
-		if arg == flag {
-			return true
-		}
-	}
-	return false
 }
 
 func handleVersionCommand() {
@@ -522,17 +626,23 @@ func showUsage() {
 func getCoreUsage() string {
 	return `Usage: wt <command> [arguments]
 
+Interactive features:
+  wt                  Launch interactive command selection (when no command specified)
+  --fuzzy, -f         Force interactive selection for branch/worktree arguments
+
 Core commands:
   list, ls            List all worktrees
   add <branch>        Add a new worktree
   rm <branch>         Remove a worktree
+                      Options: --fuzzy, -f (force interactive selection)
   go, switch, s       Switch to a worktree (no args = repo root)
+                      Options: --fuzzy, -f (force interactive selection)
   new <branch>        Create and switch to a new worktree
                       Options: --base <branch>
 
 Utility commands:
   env-copy <branch>   Copy .env files to another worktree
-                      Options: --recursive
+                      Options: --fuzzy, -f, --recursive
   project init <name> Initialize project configuration
 
 Setup commands:

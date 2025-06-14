@@ -174,6 +174,26 @@ func Remove(target string) error {
 	return cmd.Run()
 }
 
+// GetAvailableBranches returns a list of branch names from existing worktrees
+func GetAvailableBranches() ([]string, error) {
+	worktrees, err := parseWorktrees()
+	if err != nil {
+		return nil, err
+	}
+
+	branches := make([]string, len(worktrees))
+	for i, wt := range worktrees {
+		branches[i] = wt.Branch
+	}
+
+	return branches, nil
+}
+
+// GetWorktreeInfo returns worktree information for interactive selection
+func GetWorktreeInfo() ([]Worktree, error) {
+	return parseWorktrees()
+}
+
 // Go returns the path to change to based on index or branch name
 func Go(target string) (string, error) {
 	worktrees, err := parseWorktrees()
