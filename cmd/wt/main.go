@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/tobiase/worktree-utils/internal/completion"
 	"github.com/tobiase/worktree-utils/internal/config"
 	"github.com/tobiase/worktree-utils/internal/setup"
 	"github.com/tobiase/worktree-utils/internal/update"
@@ -112,6 +113,8 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 		handleEnvCopyCommand(args)
 	case "project":
 		handleProjectCommand(args, configMgr)
+	case "completion":
+		handleCompletionCommand(args, configMgr)
 	case "version":
 		handleVersionCommand()
 	case "update":
@@ -395,37 +398,114 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 	}
 }
 
-func handleSetupCommand(args []string) {
-	if len(args) > 0 {
-		switch args[0] {
-		case "--check":
-			if err := setup.Check(); err != nil {
-				fmt.Fprintf(os.Stderr, "Check failed: %v\n", err)
-				os.Exit(1)
-			}
-		case "--uninstall":
-			if err := setup.Uninstall(); err != nil {
-				fmt.Fprintf(os.Stderr, "Uninstall failed: %v\n", err)
-				os.Exit(1)
-			}
-		default:
-			fmt.Fprintf(os.Stderr, "Unknown setup option: %s\n", args[0])
-			fmt.Fprintf(os.Stderr, "Usage: wt setup [--check|--uninstall]\n")
-			os.Exit(1)
-		}
-	} else {
-		// Get current binary path
-		binaryPath, err := os.Executable()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to get executable path: %v\n", err)
-			os.Exit(1)
-		}
+const (
+	completionNone = "none"
+)
 
-		if err := setup.Setup(binaryPath); err != nil {
-			fmt.Fprintf(os.Stderr, "Setup failed: %v\n", err)
-			os.Exit(1)
+func handleSetupCommand(args []string) {
+	var completionOpts setup.CompletionOptions
+	var installMode bool
+
+	// Parse arguments and handle special modes first
+	for i, arg := range args {
+		switch arg {
+		case "--check":
+			handleSetupCheck()
+			return
+		case "--uninstall":
+			handleSetupUninstall()
+			return
+		case "--completion":
+			handleCompletionOption(args, i, &completionOpts, &installMode)
+		case "--no-completion":
+			completionOpts.Install = false
+			completionOpts.Shell = completionNone
+			installMode = true
+		default:
+			handleUnknownSetupOption(args, i, arg)
 		}
 	}
+
+	// Default setup if no specific mode
+	if !installMode && len(args) == 0 {
+		completionOpts.Install = true
+		completionOpts.Shell = "auto"
+		installMode = true
+	}
+
+	if installMode {
+		performSetupInstallation(completionOpts)
+	}
+}
+
+func handleSetupCheck() {
+	if err := setup.Check(); err != nil {
+		fmt.Fprintf(os.Stderr, "Check failed: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleSetupUninstall() {
+	if err := setup.Uninstall(); err != nil {
+		fmt.Fprintf(os.Stderr, "Uninstall failed: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleCompletionOption(args []string, i int, opts *setup.CompletionOptions, installMode *bool) {
+	if i+1 >= len(args) {
+		fmt.Fprintf(os.Stderr, "Error: --completion requires a value (auto|bash|zsh|none)\n")
+		showSetupUsage()
+		os.Exit(1)
+	}
+	completionValue := args[i+1]
+	switch completionValue {
+	case "auto", "bash", "zsh", completionNone:
+		opts.Install = completionValue != completionNone
+		opts.Shell = completionValue
+	default:
+		fmt.Fprintf(os.Stderr, "Error: invalid completion option '%s'. Use auto|bash|zsh|none\n", completionValue)
+		showSetupUsage()
+		os.Exit(1)
+	}
+	*installMode = true
+}
+
+func handleUnknownSetupOption(args []string, i int, arg string) {
+	// Skip completion values
+	if i > 0 && args[i-1] == "--completion" {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "Unknown setup option: %s\n", arg)
+	showSetupUsage()
+	os.Exit(1)
+}
+
+func performSetupInstallation(opts setup.CompletionOptions) {
+	binaryPath, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to get executable path: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := setup.SetupWithOptions(binaryPath, opts); err != nil {
+		fmt.Fprintf(os.Stderr, "Setup failed: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func showSetupUsage() {
+	fmt.Fprintf(os.Stderr, "Usage: wt setup [options]\n\n")
+	fmt.Fprintf(os.Stderr, "Options:\n")
+	fmt.Fprintf(os.Stderr, "  --completion <shell>   Install completion for specified shell (auto|bash|zsh|none)\n")
+	fmt.Fprintf(os.Stderr, "  --no-completion        Skip completion installation\n")
+	fmt.Fprintf(os.Stderr, "  --check                Check installation status\n")
+	fmt.Fprintf(os.Stderr, "  --uninstall            Remove wt from system\n\n")
+	fmt.Fprintf(os.Stderr, "Examples:\n")
+	fmt.Fprintf(os.Stderr, "  wt setup                      # Install with auto-detected completion\n")
+	fmt.Fprintf(os.Stderr, "  wt setup --completion bash    # Install with bash completion\n")
+	fmt.Fprintf(os.Stderr, "  wt setup --no-completion      # Install without completion\n")
+	fmt.Fprintf(os.Stderr, "  wt setup --check              # Check installation\n")
 }
 
 func showUsage() {
@@ -450,13 +530,14 @@ Utility commands:
   project init <name> Initialize project configuration
 
 Setup commands:
-  setup               Install wt to ~/.local/bin
-                      Options: --check, --uninstall
+  setup               Install wt to ~/.local/bin with shell completion
+                      Options: --completion <shell>, --no-completion, --check, --uninstall
   update              Check and install updates
                       Options: --check, --force
 
 Other commands:
   ` + shellInitCmd + `          Output shell initialization code
+  completion <shell>  Generate shell completion scripts (bash|zsh)
   version             Show version information`
 }
 
@@ -530,6 +611,33 @@ func printCommandCategories(navCommands, venvCommands []string, projectName stri
 	}
 
 	fmt.Fprintln(os.Stderr)
+}
+
+func handleCompletionCommand(args []string, configMgr *config.Manager) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Usage: wt completion <bash|zsh>\n")
+		fmt.Fprintf(os.Stderr, "\nGenerate shell completion scripts for wt.\n\n")
+		fmt.Fprintf(os.Stderr, "Examples:\n")
+		fmt.Fprintf(os.Stderr, "  # Install bash completion\n")
+		fmt.Fprintf(os.Stderr, "  wt completion bash >> ~/.bashrc\n\n")
+		fmt.Fprintf(os.Stderr, "  # Install zsh completion\n")
+		fmt.Fprintf(os.Stderr, "  wt completion zsh >> ~/.zshrc\n\n")
+		fmt.Fprintf(os.Stderr, "  # Or use with eval\n")
+		fmt.Fprintf(os.Stderr, "  eval \"$(wt completion bash)\"\n")
+		os.Exit(1)
+	}
+
+	shell := args[0]
+	switch shell {
+	case "bash":
+		fmt.Print(completion.GenerateBashCompletion(configMgr))
+	case "zsh":
+		fmt.Print(completion.GenerateZshCompletion(configMgr))
+	default:
+		fmt.Fprintf(os.Stderr, "wt: unsupported shell '%s'\n", shell)
+		fmt.Fprintf(os.Stderr, "Supported shells: bash, zsh\n")
+		os.Exit(1)
+	}
 }
 
 func handleUpdateCommand(args []string) {

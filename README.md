@@ -16,6 +16,7 @@ This is a personal utility project. While public for ease of access, I'm not acc
 - 🔄 **Environment Sync** - Copy `.env` files between worktrees
 - 🛠️ **Self-Installing** - Single binary that sets itself up
 - 🎯 **Smart Detection** - Automatically loads commands based on current project
+- ⌨️ **Shell Completion** - Intelligent tab completion for commands, branches, and flags
 
 ## Installation
 
@@ -93,6 +94,60 @@ commands:
 
 Now `wt dash` and `wt api` are available only in the myproject repository.
 
+## Shell Completion
+
+wt provides intelligent shell completion for commands, branches, and flags to enhance your workflow.
+
+### Installation
+
+Completion is automatically installed when you run the setup command:
+
+```bash
+wt setup
+```
+
+### Manual Installation
+
+For existing installations or custom setups:
+
+```bash
+# Bash users
+wt completion bash >> ~/.bashrc
+source ~/.bashrc
+
+# Zsh users
+wt completion zsh >> ~/.zshrc
+source ~/.zshrc
+
+# Or use with eval for temporary testing
+eval "$(wt completion bash)"
+eval "$(wt completion zsh)"
+```
+
+### Features
+
+- **Command completion**: Tab-complete all wt commands and aliases (`list`, `ls`, `go`, `switch`, etc.)
+- **Branch completion**: Intelligent branch name suggestions for relevant commands
+- **Flag completion**: Complete command flags with descriptions (e.g., `--base`, `--recursive`)
+- **Project commands**: Auto-complete project-specific commands when available
+- **Context-aware**: Different completions based on command position and context
+
+### Setup Options
+
+Control completion installation during setup:
+
+```bash
+# Install with auto-detected shell completion (default)
+wt setup
+
+# Install with specific shell completion
+wt setup --completion bash
+wt setup --completion zsh
+
+# Install without completion
+wt setup --no-completion
+```
+
 ## Configuration
 
 Configuration files are stored in `~/.config/wt/`:
@@ -100,6 +155,8 @@ Configuration files are stored in `~/.config/wt/`:
 ```
 ~/.config/wt/
 ├── init.sh              # Shell integration
+├── completion.bash      # Bash completion script
+├── completion.zsh       # Zsh completion script
 └── projects/            # Project-specific configs
     ├── project1.yaml
     └── project2.yaml

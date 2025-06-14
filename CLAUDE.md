@@ -92,11 +92,44 @@ Worktrees are organized in a predictable structure:
 
 This convention is enforced throughout the codebase.
 
+### Shell Completion System
+
+The completion system generates dynamic bash and zsh completion scripts with intelligent context awareness:
+
+**Architecture:**
+- Core completion logic in `internal/completion/completion.go`
+- Shell-specific generators in `internal/completion/bash.go` and `zsh.go`
+- Integration with project configuration for custom commands
+- Automatic branch discovery using git commands
+
+**Key Components:**
+- `CompletionData` struct holds all completion information (commands, aliases, branches, project commands)
+- Dynamic branch completion using `git worktree list` and `git branch` commands
+- Context-aware completion based on command position and argument types
+- Project command integration when available
+
+**Installation Integration:**
+- Completion scripts installed to `~/.config/wt/completion.{bash,zsh}`
+- Shell init script (`~/.config/wt/init.sh`) loads appropriate completion based on shell type
+- Setup command includes completion installation with `--completion` flags
+
+**Testing completion:**
+```bash
+# Test completion generation
+./wt-bin completion bash | head -20
+./wt-bin completion zsh | head -20
+
+# Test completion functionality (requires installation)
+wt <TAB>
+wt go <TAB>
+```
+
 ## Key Implementation Details
 
 1. **Self-Installing**: The binary can install itself with `wt-bin setup`, which:
    - Copies itself to `~/.local/bin/wt-bin`
    - Creates shell integration in `~/.config/wt/init.sh`
+   - Generates and installs shell completion scripts
    - Modifies shell configs (.bashrc/.zshrc)
 
 2. **Config Loading**: When any command runs (except shell-init):
@@ -118,6 +151,7 @@ This convention is enforced throughout the codebase.
    - `wt new <branch>`: Creates a worktree AND switches to it (combines add + go)
    - `wt env-copy <branch>`: Copies .env files from current location to same relative path in target worktree
    - `wt project init <name>`: Registers current repo as a project
+   - `wt completion <shell>`: Generates shell completion scripts for bash or zsh
 
 4. **Setup Command Handling**: The `setup` command bypasses normal initialization since it needs to work before configuration exists. It's handled specially at the start of main().
 

@@ -835,3 +835,385 @@ exit 1`
 		t.Errorf("Mock binary failed to execute: %v", err)
 	}
 }
+
+// =============================================================================
+// COMPLETION INTEGRATION TESTS
+// =============================================================================
+
+func TestDetectUserShell(t *testing.T) {
+	tests := []struct {
+		name     string
+		shell    string
+		expected string
+	}{
+		{
+			name:     "bash shell",
+			shell:    "/bin/bash",
+			expected: "bash",
+		},
+		{
+			name:     "zsh shell",
+			shell:    "/bin/zsh",
+			expected: "zsh",
+		},
+		{
+			name:     "zsh in path",
+			shell:    "/usr/local/bin/zsh",
+			expected: "zsh",
+		},
+		{
+			name:     "bash in path",
+			shell:    "/usr/local/bin/bash",
+			expected: "bash",
+		},
+		{
+			name:     "unknown shell defaults to bash",
+			shell:    "/bin/fish",
+			expected: "bash",
+		},
+		{
+			name:     "empty shell defaults to bash",
+			shell:    "",
+			expected: "bash",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original SHELL env
+			origShell := os.Getenv("SHELL")
+			defer os.Setenv("SHELL", origShell)
+
+			// Set test SHELL
+			os.Setenv("SHELL", tt.shell)
+
+			result := detectUserShell()
+			if result != tt.expected {
+				t.Errorf("Expected %s, got %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestGenerateCompletionFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	configDir := filepath.Join(tempDir, ".config", "wt")
+
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	err := generateCompletionFiles(configDir)
+	if err != nil {
+		t.Fatalf("generateCompletionFiles failed: %v", err)
+	}
+
+	// Check bash completion file was created
+	bashPath := filepath.Join(configDir, "completion.bash")
+	if _, err := os.Stat(bashPath); err != nil {
+		t.Errorf("Bash completion file not created: %v", err)
+	}
+
+	// Check zsh completion file was created
+	zshPath := filepath.Join(configDir, "completion.zsh")
+	if _, err := os.Stat(zshPath); err != nil {
+		t.Errorf("Zsh completion file not created: %v", err)
+	}
+
+	// Check bash completion content
+	bashContent, err := os.ReadFile(bashPath)
+	if err != nil {
+		t.Fatalf("Failed to read bash completion: %v", err)
+	}
+	if !strings.Contains(string(bashContent), "#!/bin/bash") {
+		t.Error("Bash completion missing shebang")
+	}
+	if !strings.Contains(string(bashContent), "_wt_completion") {
+		t.Error("Bash completion missing main function")
+	}
+
+	// Check zsh completion content
+	zshContent, err := os.ReadFile(zshPath)
+	if err != nil {
+		t.Fatalf("Failed to read zsh completion: %v", err)
+	}
+	if !strings.Contains(string(zshContent), "#compdef wt") {
+		t.Error("Zsh completion missing compdef")
+	}
+	if !strings.Contains(string(zshContent), "_wt()") {
+		t.Error("Zsh completion missing main function")
+	}
+}
+
+func TestInstallCompletion(t *testing.T) {
+	tests := []struct {
+		name       string
+		opts       CompletionOptions
+		wantErr    bool
+		checkFiles []string
+	}{
+		{
+			name: "install completion auto",
+			opts: CompletionOptions{
+				Install: true,
+				Shell:   "auto",
+			},
+			wantErr:    false,
+			checkFiles: []string{"completion.bash", "completion.zsh"},
+		},
+		{
+			name: "install completion bash only",
+			opts: CompletionOptions{
+				Install: true,
+				Shell:   "bash",
+			},
+			wantErr:    false,
+			checkFiles: []string{"completion.bash", "completion.zsh"},
+		},
+		{
+			name: "install completion zsh only",
+			opts: CompletionOptions{
+				Install: true,
+				Shell:   "zsh",
+			},
+			wantErr:    false,
+			checkFiles: []string{"completion.bash", "completion.zsh"},
+		},
+		{
+			name: "no completion installation",
+			opts: CompletionOptions{
+				Install: false,
+				Shell:   "auto",
+			},
+			wantErr:    false,
+			checkFiles: []string{},
+		},
+		{
+			name: "completion none",
+			opts: CompletionOptions{
+				Install: true,
+				Shell:   "none",
+			},
+			wantErr:    false,
+			checkFiles: []string{},
+		},
+		{
+			name: "unsupported shell",
+			opts: CompletionOptions{
+				Install: true,
+				Shell:   "fish",
+			},
+			wantErr:    true,
+			checkFiles: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			configDir := filepath.Join(tempDir, ".config", "wt")
+
+			if err := os.MkdirAll(configDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+
+			err := installCompletion(configDir, tt.opts)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			// Check expected files were created
+			for _, file := range tt.checkFiles {
+				path := filepath.Join(configDir, file)
+				if _, err := os.Stat(path); err != nil {
+					t.Errorf("Expected file %s not found: %v", file, err)
+				}
+			}
+		})
+	}
+}
+
+func TestSetupWithCompletion(t *testing.T) {
+	tests := []struct {
+		name           string
+		env            *testEnv
+		completionOpts CompletionOptions
+		wantError      bool
+		checkResult    func(t *testing.T, env *testEnv)
+	}{
+		{
+			name: "setup with completion auto",
+			env: func() *testEnv {
+				env := newTestEnv(t)
+				env.files[".bashrc"] = []byte("# My bashrc\n")
+				env.files["mock-wt-bin"] = []byte("#!/bin/sh\necho mock")
+				return env
+			}(),
+			completionOpts: CompletionOptions{
+				Install: true,
+				Shell:   "auto",
+			},
+			wantError: false,
+			checkResult: func(t *testing.T, env *testEnv) {
+				// Check completion files were created
+				bashCompletion := filepath.Join(env.homeDir, ".config", "wt", "completion.bash")
+				if _, err := os.Stat(bashCompletion); err != nil {
+					t.Errorf("Bash completion not found: %v", err)
+				}
+
+				zshCompletion := filepath.Join(env.homeDir, ".config", "wt", "completion.zsh")
+				if _, err := os.Stat(zshCompletion); err != nil {
+					t.Errorf("Zsh completion not found: %v", err)
+				}
+
+				// Check init script includes completion loading
+				initScript := filepath.Join(env.homeDir, ".config", "wt", "init.sh")
+				content, err := os.ReadFile(initScript)
+				if err != nil {
+					t.Fatalf("Failed to read init script: %v", err)
+				}
+				if !strings.Contains(string(content), "completion.bash") {
+					t.Error("Init script missing bash completion loading")
+				}
+				if !strings.Contains(string(content), "completion.zsh") {
+					t.Error("Init script missing zsh completion loading")
+				}
+			},
+		},
+		{
+			name: "setup without completion",
+			env: func() *testEnv {
+				env := newTestEnv(t)
+				env.files[".bashrc"] = []byte("# My bashrc\n")
+				env.files["mock-wt-bin"] = []byte("#!/bin/sh\necho mock")
+				return env
+			}(),
+			completionOpts: CompletionOptions{
+				Install: false,
+				Shell:   "auto",
+			},
+			wantError: false,
+			checkResult: func(t *testing.T, env *testEnv) {
+				// Check completion files were NOT created
+				bashCompletion := filepath.Join(env.homeDir, ".config", "wt", "completion.bash")
+				if _, err := os.Stat(bashCompletion); !os.IsNotExist(err) {
+					t.Error("Bash completion should not exist when install=false")
+				}
+
+				zshCompletion := filepath.Join(env.homeDir, ".config", "wt", "completion.zsh")
+				if _, err := os.Stat(zshCompletion); !os.IsNotExist(err) {
+					t.Error("Zsh completion should not exist when install=false")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanup := tt.env.setup(t)
+			defer cleanup()
+
+			// Adjust binary path to be relative to test home
+			binaryPath := filepath.Join(tt.env.homeDir, "mock-wt-bin")
+
+			err := SetupWithOptions(binaryPath, tt.completionOpts)
+
+			if tt.wantError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+			}
+
+			// Run custom checks
+			if tt.checkResult != nil {
+				tt.checkResult(t, tt.env)
+			}
+		})
+	}
+}
+
+func TestCheckVerifiesCompletion(t *testing.T) {
+	env := newTestEnv(t)
+	env.files[".bashrc"] = []byte("# My bashrc\n")
+	env.files["mock-wt-bin"] = []byte("#!/bin/sh\necho mock")
+
+	cleanup := env.setup(t)
+	defer cleanup()
+
+	// First, set up the installation
+	binaryPath := filepath.Join(env.homeDir, "mock-wt-bin")
+	if err := SetupWithOptions(binaryPath, CompletionOptions{Install: true, Shell: "auto"}); err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+
+	// Capture Check output
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := Check()
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	output := buf.String()
+
+	if err != nil {
+		t.Errorf("Check failed: %v", err)
+	}
+
+	// Verify completion files are reported as found
+	if !strings.Contains(output, "✓ Bash completion found") {
+		t.Error("Check should report bash completion as found")
+	}
+	if !strings.Contains(output, "✓ Zsh completion found") {
+		t.Error("Check should report zsh completion as found")
+	}
+
+	// Test case where completion files are missing
+	bashCompletion := filepath.Join(env.homeDir, ".config", "wt", "completion.bash")
+	zshCompletion := filepath.Join(env.homeDir, ".config", "wt", "completion.zsh")
+
+	// Remove completion files
+	os.Remove(bashCompletion)
+	os.Remove(zshCompletion)
+
+	// Run Check again
+	r, w, _ = os.Pipe()
+	os.Stdout = w
+
+	err = Check()
+
+	w.Close()
+	os.Stdout = oldStdout
+	buf.Reset()
+	_, _ = io.Copy(&buf, r)
+	output = buf.String()
+
+	if err != nil {
+		t.Errorf("Check failed: %v", err)
+	}
+
+	// Verify completion files are reported as missing
+	if !strings.Contains(output, "✗ Bash completion not found") {
+		t.Error("Check should report bash completion as missing")
+	}
+	if !strings.Contains(output, "✗ Zsh completion not found") {
+		t.Error("Check should report zsh completion as missing")
+	}
+}

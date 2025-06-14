@@ -8,16 +8,110 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/tobiase/worktree-utils/internal/completion"
+	"github.com/tobiase/worktree-utils/internal/config"
 )
 
 const initScript = `# worktree-utils shell initialization
 if command -v wt-bin &> /dev/null; then
   source <(wt-bin shell-init)
+
+  # Load shell completion if available
+  if [[ -n "$BASH_VERSION" ]] && [[ -f ~/.config/wt/completion.bash ]]; then
+    source ~/.config/wt/completion.bash
+  elif [[ -n "$ZSH_VERSION" ]] && [[ -f ~/.config/wt/completion.zsh ]]; then
+    source ~/.config/wt/completion.zsh
+  fi
 fi
 `
 
-// Setup installs wt to the user's system
+// CompletionOptions controls which completion scripts to install
+type CompletionOptions struct {
+	Install bool
+	Shell   string // "auto", "bash", "zsh", "none"
+}
+
+const (
+	shellBash = "bash"
+	shellZsh  = "zsh"
+)
+
+// detectUserShell determines the user's primary shell
+func detectUserShell() string {
+	shell := os.Getenv("SHELL")
+	if strings.Contains(shell, shellZsh) {
+		return shellZsh
+	} else if strings.Contains(shell, shellBash) {
+		return shellBash
+	}
+	// Default to bash if unable to detect
+	return shellBash
+}
+
+// generateCompletionFiles creates completion script files in the config directory
+func generateCompletionFiles(configDir string) error {
+	// Create config manager for completion generation
+	configMgr, err := config.NewManager()
+	if err != nil {
+		// If config fails, create completion without project integration
+		configMgr = nil
+	}
+
+	// Generate bash completion
+	bashCompletion := completion.GenerateBashCompletion(configMgr)
+	bashPath := filepath.Join(configDir, "completion.bash")
+	if err := os.WriteFile(bashPath, []byte(bashCompletion), 0644); err != nil {
+		return fmt.Errorf("failed to write bash completion: %v", err)
+	}
+
+	// Generate zsh completion
+	zshCompletion := completion.GenerateZshCompletion(configMgr)
+	zshPath := filepath.Join(configDir, "completion.zsh")
+	if err := os.WriteFile(zshPath, []byte(zshCompletion), 0644); err != nil {
+		return fmt.Errorf("failed to write zsh completion: %v", err)
+	}
+
+	return nil
+}
+
+// installCompletion handles completion installation based on options
+func installCompletion(configDir string, opts CompletionOptions) error {
+	if !opts.Install {
+		return nil
+	}
+
+	// Determine which shell(s) to install for
+	shells := []string{}
+	if opts.Shell == "auto" {
+		shells = append(shells, detectUserShell())
+	} else if opts.Shell == shellBash || opts.Shell == shellZsh {
+		shells = append(shells, opts.Shell)
+	} else if opts.Shell == "none" {
+		return nil
+	} else {
+		return fmt.Errorf("unsupported shell: %s", opts.Shell)
+	}
+
+	// Generate completion files
+	if err := generateCompletionFiles(configDir); err != nil {
+		return err
+	}
+
+	fmt.Printf("✓ Installed completion for: %s\n", strings.Join(shells, ", "))
+	return nil
+}
+
+// Setup installs wt to the user's system with default completion options
 func Setup(currentBinaryPath string) error {
+	return SetupWithOptions(currentBinaryPath, CompletionOptions{
+		Install: true,
+		Shell:   "auto",
+	})
+}
+
+// SetupWithOptions installs wt to the user's system with specified completion options
+func SetupWithOptions(currentBinaryPath string, completionOpts CompletionOptions) error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %v", err)
@@ -61,6 +155,11 @@ func Setup(currentBinaryPath string) error {
 		} else {
 			fmt.Printf("✓ Updated %s\n", configFile)
 		}
+	}
+
+	// Install completion scripts
+	if err := installCompletion(configDir, completionOpts); err != nil {
+		fmt.Printf("Warning: failed to install completion: %v\n", err)
 	}
 
 	// Check if ~/.local/bin is in PATH
@@ -146,6 +245,21 @@ func Check() error {
 		fmt.Printf("✗ Init script not found at %s\n", initPath)
 	} else {
 		fmt.Printf("✓ Init script found at %s\n", initPath)
+	}
+
+	// Check completion files
+	bashCompletionPath := filepath.Join(configDir, "completion.bash")
+	if _, err := os.Stat(bashCompletionPath); err != nil {
+		fmt.Printf("✗ Bash completion not found at %s\n", bashCompletionPath)
+	} else {
+		fmt.Printf("✓ Bash completion found at %s\n", bashCompletionPath)
+	}
+
+	zshCompletionPath := filepath.Join(configDir, "completion.zsh")
+	if _, err := os.Stat(zshCompletionPath); err != nil {
+		fmt.Printf("✗ Zsh completion not found at %s\n", zshCompletionPath)
+	} else {
+		fmt.Printf("✓ Zsh completion found at %s\n", zshCompletionPath)
 	}
 
 	// Check PATH
