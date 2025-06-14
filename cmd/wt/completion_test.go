@@ -290,8 +290,8 @@ func createCompletionTestBinary(t *testing.T) (string, func()) {
 	return binaryPath, cleanup
 }
 
-const projectDir = "/Users/tobias/Projects/worktree-utils/cmd/wt"
-
 func getProjectDir() string {
-	return projectDir
+	// Get the directory where this test file is located
+	// Since this test is in cmd/wt/completion_test.go, return "."
+	return "."
 }
