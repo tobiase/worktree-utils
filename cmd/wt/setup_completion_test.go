@@ -21,22 +21,22 @@ func TestSetupCompletionCommand(t *testing.T) {
 			name:         "setup with completion auto",
 			args:         []string{"setup", "--completion", "auto"},
 			expectError:  false,
-			expectOutput: []string{"✓ Setup complete!", "✓ Installed completion for: bash, zsh"},
-			expectFiles:  []string{".config/wt/completion.bash", ".config/wt/completions/_wt"},
+			expectOutput: []string{"✓ Setup complete!"},
+			expectFiles:  []string{}, // No files created with process substitution
 		},
 		{
 			name:         "setup with completion bash",
 			args:         []string{"setup", "--completion", "bash"},
 			expectError:  false,
-			expectOutput: []string{"✓ Setup complete!", "✓ Installed completion for: bash"},
-			expectFiles:  []string{".config/wt/completion.bash"},
+			expectOutput: []string{"✓ Setup complete!"},
+			expectFiles:  []string{}, // No files created with process substitution
 		},
 		{
 			name:         "setup with completion zsh",
 			args:         []string{"setup", "--completion", "zsh"},
 			expectError:  false,
-			expectOutput: []string{"✓ Setup complete!", "✓ Installed completion for: zsh"},
-			expectFiles:  []string{".config/wt/completions/_wt"},
+			expectOutput: []string{"✓ Setup complete!"},
+			expectFiles:  []string{}, // No files created with process substitution
 		},
 		{
 			name:          "setup with completion none",
@@ -58,8 +58,8 @@ func TestSetupCompletionCommand(t *testing.T) {
 			name:         "setup default (with completion)",
 			args:         []string{"setup"},
 			expectError:  false,
-			expectOutput: []string{"✓ Setup complete!", "✓ Installed completion for: bash, zsh"},
-			expectFiles:  []string{".config/wt/completion.bash", ".config/wt/completions/_wt"},
+			expectOutput: []string{"✓ Setup complete!"},
+			expectFiles:  []string{}, // No files created with process substitution
 		},
 		{
 			name:         "setup with invalid completion option",
@@ -143,48 +143,7 @@ func TestSetupCompletionCommand(t *testing.T) {
 	}
 }
 
-func TestSetupCompletionCheck(t *testing.T) {
-	// Create temporary directory for test
-	tempDir := t.TempDir()
-
-	// Build test binary
-	binaryPath, cleanup := createSetupTestBinary(t)
-	defer cleanup()
-
-	// Set up environment
-	oldHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", oldHome)
-	os.Setenv("HOME", tempDir)
-
-	// Create .bashrc to satisfy shell config detection
-	bashrcPath := filepath.Join(tempDir, ".bashrc")
-	if err := os.WriteFile(bashrcPath, []byte("# test bashrc\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// First, run setup with completion
-	setupCmd := exec.Command(binaryPath, "setup", "--completion", "auto")
-	if err := setupCmd.Run(); err != nil {
-		t.Fatalf("Setup failed: %v", err)
-	}
-
-	// Then run check to verify completion was installed
-	checkCmd := exec.Command(binaryPath, "setup", "--check")
-	output, err := checkCmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("Check failed: %v", err)
-	}
-
-	outputStr := string(output)
-
-	// Verify completion files are reported as found
-	if !strings.Contains(outputStr, "✓ Bash completion found") {
-		t.Error("Check should report bash completion as found")
-	}
-	if !strings.Contains(outputStr, "✓ Zsh completion found") {
-		t.Error("Check should report zsh completion as found")
-	}
-}
+// TestSetupCompletionCheck removed - no longer relevant with process substitution approach
 
 func TestSetupCompletionUsage(t *testing.T) {
 	// Build test binary

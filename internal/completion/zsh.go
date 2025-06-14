@@ -179,4 +179,14 @@ func generateZshHelperFunctions(builder *strings.Builder, data *CompletionData) 
 	builder.WriteString("    _describe 'update options' options\n")
 	builder.WriteString("}\n\n")
 
+	// Register completion function (only if compdef is available)
+	builder.WriteString("# Register the completion function\n")
+	builder.WriteString("if command -v compdef >/dev/null 2>&1; then\n")
+	builder.WriteString("    compdef _wt wt\n")
+	builder.WriteString("else\n")
+	builder.WriteString("    # Completion system not initialized yet\n")
+	builder.WriteString("    autoload -Uz compinit && compinit\n")
+	builder.WriteString("    compdef _wt wt\n")
+	builder.WriteString("fi\n")
+
 }

@@ -47,6 +47,32 @@ make build-all
 make clean
 ```
 
+## Fresh Shell Testing Commands
+
+**IMPORTANT**: Use these commands for testing completion to avoid shell corruption issues:
+
+```bash
+# Quick completion test in fresh shell
+make test-completion
+
+# Interactive shell with completion loaded (test TAB completion manually)
+make test-completion-interactive
+
+# Debug completion script generation
+make debug-completion
+
+# Test entire setup process in clean environment
+make test-setup
+
+# Completely fresh shell environment for manual testing
+make test-fresh
+
+# Standalone test script
+./scripts/test-completion.sh
+```
+
+These tools solve the common problem where testing completion in the current shell fails due to debugging artifacts and cache corruption.
+
 ## Architecture Overview
 
 This is a Git worktree management CLI tool written in Go. The key architectural pattern is the separation between a Go binary that handles logic and a minimal shell wrapper that enables directory changes.

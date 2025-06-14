@@ -1,144 +1,78 @@
 # Zsh Completion Troubleshooting Guide
 
-This document contains the exact patterns and commands needed to debug and fix zsh completion for wt.
+## Our Working Solution: Process Substitution
 
-## Working Pattern (TESTED AND VERIFIED)
+We use the same approach as kubectl, helm, and terraform:
 
-### 1. File Structure Requirements
-```
-~/.config/wt/completions/_wt    # ← Underscore prefix is REQUIRED
-```
-
-### 2. File Content Format
 ```bash
-#compdef wt
-# Zsh completion for wt (worktree-utils)
-# Generated automatically - do not edit manually
-
-_wt() {
-    local context state line
-    typeset -A opt_args
-
-    _arguments -C \
-        '1: :_wt_commands' \
-        '*:: :->args'
-    # ... completion logic here
-}
-
-# IMPORTANT: NO calls to compdef or _wt at the end!
+# What gets added to ~/.zshrc:
+source <(wt-bin completion zsh)
 ```
 
-### 3. Loading Sequence (Manual Test)
+**Why this works**: No files, no fpath manipulation, works with all zsh configurations.
+
+## Fresh Shell Testing Tools
+
+To avoid shell corruption during development and testing, use these Make commands:
+
 ```bash
-# Test this exact sequence in a fresh zsh shell:
-fpath=(~/.config/wt/completions $fpath)
-autoload -Uz compinit && compinit
-autoload -Uz _wt
+# Quick completion test in fresh shell
+make test-completion
 
-# Verify it worked:
-type _wt
-# Should output: "_wt is an autoload shell function from /Users/.../completions/_wt"
+# Interactive shell with completion loaded (for manual TAB testing)
+make test-completion-interactive
+
+# Debug completion script generation
+make debug-completion
+
+# Test entire setup process in clean environment
+make test-setup
+
+# Completely fresh shell environment
+make test-fresh
+
+# Standalone test script
+./scripts/test-completion.sh
 ```
 
-### 4. Init Script Pattern
+**Why these tools are essential**: During development, the current shell gets corrupted with debugging attempts, causing false negatives. These tools ensure testing happens in clean environments.
+
+## Useful Links and References
+
+- [Zsh Completion System Documentation](http://zsh.sourceforge.net/Doc/Release/Completion-System.html)
+- [Kubectl Completion Setup](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/#enable-shell-autocompletion)
+- [GitHub CLI Completion](https://cli.github.com/manual/gh_completion)
+- [Docker Completion Guide](https://docs.docker.com/engine/cli-completion/)
+- [Oh-My-Zsh Completion Plugin](https://github.com/zsh-users/zsh-completions)
+- [Zsh fpath and autoload explained](https://github.com/zsh-users/zsh/blob/master/Etc/completion-style-guide)
+
+## Troubleshooting
+
+### If completion doesn't work after setup:
+
 ```bash
-elif [[ -n "$ZSH_VERSION" ]]; then
-  # Add wt completion directory to fpath
-  fpath=(~/.config/wt/completions $fpath)
+# 1. Check if the line was added to your shell config
+grep "wt-bin completion" ~/.zshrc
 
-  # Ensure completion system is initialized
-  if ! command -v compinit >/dev/null 2>&1; then
-    autoload -Uz compinit
-    compinit
-  fi
+# 2. Test manually in current shell
+source <(wt-bin completion zsh)
+type _wt    # Should show: "_wt is a shell function"
 
-  # Load completion if available
-  if [[ -f ~/.config/wt/completions/_wt ]]; then
-    autoload -Uz _wt
-  fi
-fi
+# 3. Clear completion cache if needed
+rm ~/.zcompdump* && exec zsh
+
+# 4. Use testing tools for clean verification
+make test-completion
 ```
 
-## Debugging Steps
+### Common Issues
 
-### Step 1: Verify File Exists
-```bash
-ls -la ~/.config/wt/completions/_wt
-# Should show: -rw-r--r--  1 user  staff  3557 date _wt
-```
+- **"wt-bin: command not found"**: Binary not in PATH, run `which wt-bin`
+- **"_comps: assignment to invalid subscript range"**: Completion cache corruption, clear with `rm ~/.zcompdump*`
+- **Completion works manually but not automatically**: Shell config line missing or not being sourced
 
-### Step 2: Test Manual Loading
-```bash
-# Run in fresh zsh:
-fpath=(~/.config/wt/completions $fpath)
-autoload -Uz compinit && compinit
-autoload -Uz _wt
-type _wt
-```
+## Development Notes
 
-### Step 3: Check fpath
-```bash
-echo $fpath | grep wt
-# Should show: /Users/username/.config/wt/completions
-```
-
-### Step 4: Verify Completion System
-```bash
-# Check if compinit is available:
-command -v compinit
-# Should show: compinit
-
-# Check if completion functions work:
-type _describe
-# Should show: _describe is a shell function
-```
-
-## Common Issues and Fixes
-
-### Issue: "_wt not found" after autoload
-**Cause**: File name wrong or not in fpath
-**Fix**: Ensure file is named `_wt` (with underscore) in `completions/` directory
-
-### Issue: "_arguments:comparguments:327" error
-**Cause**: Completion file has `compdef _wt wt` or `_wt "$@"` at end
-**Fix**: Remove those lines from completion file
-
-### Issue: "command not found: _describe"
-**Cause**: Completion system not initialized
-**Fix**: Run `autoload -Uz compinit && compinit` first
-
-### Issue: Completion loads manually but not automatically
-**Cause**: Init script not being sourced or has logic errors
-**Fix**: Check that `~/.zshrc` has: `[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh`
-
-## Testing Commands
-
-### Quick Manual Test
-```bash
-# In fresh shell, run these commands in sequence:
-source ~/.config/wt/init.sh
-type _wt                           # Should work
-echo $fpath | grep wt             # Should show completion dir
-```
-
-### Full End-to-End Test
-```bash
-# Start completely fresh shell:
-exec zsh
-
-# Check automatic loading:
-type _wt                          # Should work without manual steps
-wt <TAB>                         # Should show completions
-```
-
-## Files Modified in This Session
-- `internal/completion/zsh.go` - Fixed generation to not include problematic calls
-- `internal/setup/setup.go` - Updated to create `completions/_wt` instead of `completion.zsh`
-- `cmd/wt/main.go` - Added `--help` flag support
-- Setup tests - Updated expectations for new file structure
-
-## Status
-- ✅ Manual loading works perfectly
-- ❓ Automatic loading in fresh shells needs verification
-- ✅ File structure follows zsh conventions
-- ✅ Errors eliminated from completion system
+- **Never test in current shell**: Use `make test-completion` for clean testing
+- **Process substitution always works**: Unlike file-based approaches, this has no initialization order issues
+- **Cache clearing**: `rm ~/.zcompdump*` solves most completion cache problems

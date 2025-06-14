@@ -1,4 +1,4 @@
-.PHONY: build install install-local test test-ci clean lint install-golangci-lint
+.PHONY: build install install-local test test-ci clean lint install-golangci-lint test-completion test-completion-interactive test-setup test-fresh debug-completion
 
 # Build variables
 BINARY_NAME=wt-bin
@@ -93,3 +93,30 @@ build-all:
 	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
 	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
 	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PATH)
+
+# Fresh shell testing targets
+test-completion: build
+	@echo "🧪 Testing completion in fresh zsh shell..."
+	@echo 'source <(./$(BINARY_NAME) completion zsh); echo "✓ Completion loaded"; type _wt; echo "Ready for testing: try typing \"wt \" and press TAB"' | zsh
+
+test-completion-interactive: build
+	@echo "🚀 Starting fresh zsh with completion loaded..."
+	@echo "Type 'wt ' and press TAB to test completion. Type 'exit' to return."
+	@echo 'source <(./$(BINARY_NAME) completion zsh); echo "✓ Completion loaded successfully! Try: wt <TAB>"; exec zsh -i' | zsh
+
+test-setup: build
+	@echo "🔧 Testing setup process in fresh environment..."
+	@echo 'echo "=== Setup Test ==="; ./$(BINARY_NAME) setup --check; echo "=== Testing binary ==="; ./$(BINARY_NAME) --help | head -5; echo "=== Testing completion ==="; source <(./$(BINARY_NAME) completion zsh); type _wt' | env -i HOME=$$HOME PATH=$$PATH zsh
+
+test-fresh: build
+	@echo "🆕 Starting completely fresh shell environment..."
+	@echo "Binary built. Starting clean zsh shell..."
+	@env -i HOME=$$HOME PATH=$$PATH:/Users/tobias/Projects/worktree-utils zsh -c 'echo "Fresh shell ready! Binary at: ./$(BINARY_NAME)"; exec zsh -i'
+
+debug-completion: build
+	@echo "🐛 Debugging completion generation..."
+	@echo "=== Completion script output ==="
+	@./$(BINARY_NAME) completion zsh | head -20
+	@echo ""
+	@echo "=== Testing in fresh shell ==="
+	@echo 'source <(./$(BINARY_NAME) completion zsh) && echo "Completion loaded" && type _wt' | zsh

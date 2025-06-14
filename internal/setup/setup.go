@@ -24,11 +24,8 @@ if command -v wt-bin &> /dev/null; then
     # Add wt completion directory to fpath
     fpath=(~/.config/wt/completions $fpath)
 
-    # Ensure completion system is initialized
-    if ! command -v compinit >/dev/null 2>&1; then
-      autoload -Uz compinit
-      compinit
-    fi
+    # Initialize completion system (required after fpath changes)
+    autoload -Uz compinit && compinit
 
     # Load completion if available
     if [[ -f ~/.config/wt/completions/_wt ]]; then
@@ -45,6 +42,7 @@ type CompletionOptions struct {
 }
 
 const (
+	shellAuto = "auto"
 	shellBash = "bash"
 	shellZsh  = "zsh"
 )
@@ -110,26 +108,87 @@ func installCompletion(configDir string, opts CompletionOptions) error {
 		return nil
 	}
 
-	// Determine which shell(s) to install for
-	shells := []string{}
-	if opts.Shell == "auto" {
-		// Auto means install for all supported shells
-		shells = []string{shellBash, shellZsh}
-	} else if opts.Shell == shellBash || opts.Shell == shellZsh {
-		shells = append(shells, opts.Shell)
-	} else if opts.Shell == "none" {
+	if opts.Shell == "none" {
 		return nil
-	} else {
-		return fmt.Errorf("unsupported shell: %s", opts.Shell)
 	}
 
-	// Generate completion files for requested shells
-	if err := generateCompletionFilesForShells(configDir, shells); err != nil {
+	// Get shell config files to modify
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
 		return err
 	}
 
-	fmt.Printf("✓ Installed completion for: %s\n", strings.Join(shells, ", "))
+	var configFiles []string
+	var completionLines []string
+
+	// Determine which shells to install for and their config files
+	if opts.Shell == shellAuto || opts.Shell == shellZsh {
+		zshrc := filepath.Join(homeDir, ".zshrc")
+		if _, err := os.Stat(zshrc); err == nil {
+			configFiles = append(configFiles, zshrc)
+			completionLines = append(completionLines, "source <(wt-bin completion zsh)")
+		}
+	}
+
+	if opts.Shell == shellAuto || opts.Shell == shellBash {
+		bashrc := filepath.Join(homeDir, ".bashrc")
+		if _, err := os.Stat(bashrc); err == nil {
+			configFiles = append(configFiles, bashrc)
+			completionLines = append(completionLines, "source <(wt-bin completion bash)")
+		}
+	}
+
+	if opts.Shell != "auto" && opts.Shell != shellBash && opts.Shell != shellZsh {
+		return fmt.Errorf("unsupported shell: %s", opts.Shell)
+	}
+
+	// Add completion lines to shell configs
+	var installedShells []string
+	for i, configFile := range configFiles {
+		completionLine := completionLines[i]
+
+		// Check if completion is already configured
+		if hasCompletionConfig(configFile) {
+			continue
+		}
+
+		// Add completion line
+		if err := addToShellConfig(configFile, completionLine); err != nil {
+			return fmt.Errorf("failed to add completion to %s: %v", configFile, err)
+		}
+
+		if strings.Contains(configFile, ".zshrc") {
+			installedShells = append(installedShells, "zsh")
+		} else if strings.Contains(configFile, ".bashrc") {
+			installedShells = append(installedShells, "bash")
+		}
+	}
+
+	if len(installedShells) > 0 {
+		fmt.Printf("✓ Installed completion for: %s\n", strings.Join(installedShells, ", "))
+	}
+
 	return nil
+}
+
+// hasCompletionConfig checks if shell config already has wt completion
+func hasCompletionConfig(configFile string) bool {
+	file, err := os.Open(configFile)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "wt-bin completion") ||
+			strings.Contains(line, "source <(wt completion") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Setup installs wt to the user's system with default completion options
@@ -165,29 +224,29 @@ func SetupWithOptions(currentBinaryPath string, completionOpts CompletionOptions
 		return fmt.Errorf("failed to copy binary: %v", err)
 	}
 
-	// Create init script
-	initScriptPath := filepath.Join(configDir, "init.sh")
-	if err := os.WriteFile(initScriptPath, []byte(initScript), 0644); err != nil {
-		return fmt.Errorf("failed to create init script: %v", err)
-	}
-
-	// Add to shell configs
+	// Add shell function to shell configs
 	shellConfigs := detectShellConfigs(homeDir)
 	if len(shellConfigs) == 0 {
 		return fmt.Errorf("no shell configuration files found")
 	}
 
-	initLine := "[ -f ~/.config/wt/init.sh ] && source ~/.config/wt/init.sh"
+	shellFunctionLine := "source <(wt-bin shell-init)"
 
 	for _, configFile := range shellConfigs {
-		if err := addToShellConfig(configFile, initLine); err != nil {
+		// Check if shell function already configured
+		if hasWtInit(configFile) {
+			fmt.Printf("✓ %s already configured\n", configFile)
+			continue
+		}
+
+		if err := addToShellConfig(configFile, shellFunctionLine); err != nil {
 			fmt.Printf("Warning: failed to update %s: %v\n", configFile, err)
 		} else {
 			fmt.Printf("✓ Updated %s\n", configFile)
 		}
 	}
 
-	// Install completion scripts
+	// Install completion via process substitution
 	if err := installCompletion(configDir, completionOpts); err != nil {
 		fmt.Printf("Warning: failed to install completion: %v\n", err)
 	}
