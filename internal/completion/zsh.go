@@ -182,4 +182,8 @@ func generateZshHelperFunctions(builder *strings.Builder, data *CompletionData) 
 	builder.WriteString("    )\n")
 	builder.WriteString("    _describe 'update options' options\n")
 	builder.WriteString("}\n\n")
+
+	// Register the completion function
+	builder.WriteString("# Register completion\n")
+	builder.WriteString("compdef _wt wt\n")
 }

@@ -51,6 +51,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Handle help flags
+	if len(os.Args) == 2 && (os.Args[1] == "--help" || os.Args[1] == "-h") {
+		showUsage()
+		return
+	}
+
 	cmd := resolveCommandAlias(os.Args[1])
 	args := os.Args[2:]
 
