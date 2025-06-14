@@ -540,7 +540,7 @@ func checkConfigFiles(configDir string, completionOpts CompletionOptions) ([]str
 			} else if completionOpts.Shell == shellBash || completionOpts.Shell == shellZsh {
 				shells = append(shells, completionOpts.Shell)
 			}
-			
+
 			if len(shells) > 0 {
 				if err := generateCompletionFilesForShells(configDir, shells); err == nil {
 					repaired = append(repaired, "regenerated completion files")

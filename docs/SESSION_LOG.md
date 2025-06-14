@@ -9,6 +9,121 @@ This document tracks work completed during each development session to enable se
 
 ---
 
+## 2025-06-14 Part 2 - Shell Completion Critical Fixes & Learnings
+
+### Context
+Continued from morning session. User reported two major issues:
+1. `wt --help` shows minimal help instead of comprehensive usage
+2. Shell completion completely broken with errors like "_arguments:comparguments:327: can only be called from completion function"
+
+### Work Completed
+
+#### 1. **Fixed `--help` Flag Support**
+- Added support for `--help` and `-h` flags in main.go:48-58
+- Now shows comprehensive help instead of error
+
+#### 2. **Researched and Fixed Zsh Completion Structure**
+**CRITICAL DISCOVERY**: Zsh completion requires specific file structure and loading patterns:
+
+**✅ WORKING ZSH COMPLETION PATTERN:**
+```bash
+# 1. File location: ~/.config/wt/completions/_wt (underscore prefix required)
+# 2. File content: starts with #compdef wt
+# 3. Loading sequence:
+fpath=(~/.config/wt/completions $fpath)
+autoload -Uz compinit && compinit
+autoload -Uz _wt
+# 4. Test: type _wt (should show "autoload shell function")
+```
+
+**❌ BROKEN PATTERNS THAT DON'T WORK:**
+- Direct sourcing: `source ~/.config/wt/completion.zsh`
+- Wrong file name: `completion.zsh` instead of `_wt`
+- Calling `compdef` manually (causes subscription range errors)
+- Having `_wt "$@"` at end of completion file
+
+#### 3. **Setup Command Enhancements**
+- Added `validateAndRepairInstallation()` function to detect and fix:
+  - Empty/corrupted binary files (major issue found)
+  - Missing completion files
+  - Wrong file permissions
+  - Problematic shell configurations
+- Made completion generation shell-specific (only bash/zsh when requested)
+- Fixed tests to match new behavior
+
+#### 4. **Shell Integration Improvements**
+- Updated init script to use proper zsh completion loading
+- Moved from `~/.config/wt/completion.zsh` to `~/.config/wt/completions/_wt`
+- Removed problematic `compdef` calls that caused errors
+
+### Key Technical Discoveries
+
+#### **Working Zsh Completion Init Script Pattern:**
+```bash
+elif [[ -n "$ZSH_VERSION" ]]; then
+  # Add wt completion directory to fpath
+  fpath=(~/.config/wt/completions $fpath)
+
+  # Ensure completion system is initialized
+  if ! command -v compinit >/dev/null 2>&1; then
+    autoload -Uz compinit
+    compinit
+  fi
+
+  # Load completion if available
+  if [[ -f ~/.config/wt/completions/_wt ]]; then
+    autoload -Uz _wt
+  fi
+fi
+```
+
+#### **Zsh Completion File Structure:**
+```bash
+#compdef wt
+# Zsh completion for wt (worktree-utils)
+
+_wt() {
+    local context state line
+    typeset -A opt_args
+
+    _arguments -C \
+        '1: :_wt_commands' \
+        '*:: :->args'
+    # ... rest of completion logic
+}
+
+# NO CALLS TO compdef OR _wt at the end!
+```
+
+### Issues Fixed
+- ✅ `--help` flag now works properly
+- ✅ Removed zsh completion startup errors
+- ✅ Setup command now detects and repairs broken installations
+- ✅ File structure follows zsh conventions
+- ✅ Tests updated to match new shell-specific behavior
+
+### Issues Still Remaining
+- ❓ Auto-loading in fresh shells needs verification
+- ❓ Binary copy issue in setup process (detected empty binary)
+
+### Commits Made
+- `6197503` - fix: add --help flag support and improve zsh completion
+- `bb4a031` - chore: remove legacy wt.sh shell script
+- `6a9848e` - feat: fix zsh completion with proper file structure and loading
+- `5c45151` - fix: improve setup completion validation and shell-specific file generation
+
+### Next Steps for Future Sessions
+1. **PRIORITY**: Test end-to-end completion in fresh shell
+2. Debug why autoload sometimes doesn't work automatically
+3. Fix binary copy issue in setup process
+4. Create comprehensive completion testing documentation
+5. Release v0.6.2 with all fixes
+
+### Documentation Created
+This session log with critical zsh completion patterns that work.
+
+---
+
 ## 2025-06-14 - Shell Completion Implementation (Issue #5)
 
 ### Context
