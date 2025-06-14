@@ -507,7 +507,26 @@ func checkConfigFiles(configDir string, completionOpts CompletionOptions) ([]str
 	var issues []string
 	var repaired []string
 
-	// Check init script exists
+	// Check init script
+	initIssues, initRepairs := checkInitScript(configDir)
+	issues = append(issues, initIssues...)
+	repaired = append(repaired, initRepairs...)
+
+	// Check completion files if enabled
+	if completionOpts.Install {
+		completionIssues, completionRepairs := checkCompletionFiles(configDir, completionOpts)
+		issues = append(issues, completionIssues...)
+		repaired = append(repaired, completionRepairs...)
+	}
+
+	return issues, repaired
+}
+
+// checkInitScript validates and repairs the init script
+func checkInitScript(configDir string) ([]string, []string) {
+	var issues []string
+	var repaired []string
+
 	initPath := filepath.Join(configDir, "init.sh")
 	if _, err := os.Stat(initPath); err != nil {
 		issues = append(issues, "init script missing")
@@ -517,39 +536,52 @@ func checkConfigFiles(configDir string, completionOpts CompletionOptions) ([]str
 		}
 	}
 
-	// Only check completion files if completion is enabled
-	if completionOpts.Install {
-		// Check completion files exist and are not corrupted
-		bashCompletionPath := filepath.Join(configDir, "completion.bash")
-		zshCompletionPath := filepath.Join(configDir, "completions", "_wt")
+	return issues, repaired
+}
 
-		completionIssues := false
-		if stat, err := os.Stat(bashCompletionPath); err != nil || stat.Size() < 100 {
-			completionIssues = true
-		}
-		if stat, err := os.Stat(zshCompletionPath); err != nil || stat.Size() < 100 {
-			completionIssues = true
-		}
+// checkCompletionFiles validates and repairs completion files
+func checkCompletionFiles(configDir string, completionOpts CompletionOptions) ([]string, []string) {
+	var issues []string
+	var repaired []string
 
-		if completionIssues {
-			issues = append(issues, "completion files missing or corrupted")
-			// Regenerate completion files only for enabled shells
-			shells := []string{}
-			if completionOpts.Shell == "auto" {
-				shells = append(shells, detectUserShell())
-			} else if completionOpts.Shell == shellBash || completionOpts.Shell == shellZsh {
-				shells = append(shells, completionOpts.Shell)
-			}
+	// Check completion files exist and are not corrupted
+	bashCompletionPath := filepath.Join(configDir, "completion.bash")
+	zshCompletionPath := filepath.Join(configDir, "completions", "_wt")
 
-			if len(shells) > 0 {
-				if err := generateCompletionFilesForShells(configDir, shells); err == nil {
-					repaired = append(repaired, "regenerated completion files")
-				}
+	completionIssues := false
+	if stat, err := os.Stat(bashCompletionPath); err != nil || stat.Size() < 100 {
+		completionIssues = true
+	}
+	if stat, err := os.Stat(zshCompletionPath); err != nil || stat.Size() < 100 {
+		completionIssues = true
+	}
+
+	if completionIssues {
+		issues = append(issues, "completion files missing or corrupted")
+
+		// Determine shells to regenerate for
+		shells := getShellsForCompletion(completionOpts)
+		if len(shells) > 0 {
+			if err := generateCompletionFilesForShells(configDir, shells); err == nil {
+				repaired = append(repaired, "regenerated completion files")
 			}
 		}
 	}
 
 	return issues, repaired
+}
+
+// getShellsForCompletion determines which shells to generate completion for
+func getShellsForCompletion(completionOpts CompletionOptions) []string {
+	var shells []string
+
+	if completionOpts.Shell == "auto" {
+		shells = append(shells, detectUserShell())
+	} else if completionOpts.Shell == shellBash || completionOpts.Shell == shellZsh {
+		shells = append(shells, completionOpts.Shell)
+	}
+
+	return shells
 }
 
 // checkShellConfigs validates shell configuration files
