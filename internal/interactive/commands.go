@@ -29,14 +29,8 @@ func GetAvailableCommands() []CommandInfo {
 			Usage:       "wt go [branch] [--fuzzy]",
 		},
 		{
-			Name:        "add",
-			Description: "Add a new worktree for an existing branch",
-			Aliases:     []string{},
-			Usage:       "wt add <branch>",
-		},
-		{
 			Name:        "new",
-			Description: "Create and switch to a new worktree",
+			Description: "Smart worktree creation (handles all branch states)",
 			Aliases:     []string{},
 			Usage:       "wt new <branch> [--base <branch>]",
 		},

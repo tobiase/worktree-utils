@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -64,10 +65,15 @@ func parseWorktrees() ([]Worktree, error) {
 			currentPath = strings.TrimPrefix(line, "worktree ")
 		} else if strings.HasPrefix(line, "branch refs/heads/") {
 			branch := strings.TrimPrefix(line, "branch refs/heads/")
-			worktrees = append(worktrees, Worktree{
-				Path:   currentPath,
-				Branch: branch,
-			})
+			if currentPath != "" && branch != "" {
+				worktrees = append(worktrees, Worktree{
+					Path:   currentPath,
+					Branch: branch,
+				})
+			}
+		} else if currentPath != "" && line == "" {
+			// Empty line indicates end of worktree entry - skip worktrees without proper branch info
+			currentPath = ""
 		}
 	}
 
@@ -221,4 +227,116 @@ func Go(target string) (string, error) {
 	}
 
 	return "", fmt.Errorf("branch '%s' not found among worktrees", target)
+}
+
+// checkBranchExists checks if a branch exists in the repository
+func checkBranchExists(branch string) bool {
+	repo, err := GetRepoRoot()
+	if err != nil {
+		return false
+	}
+
+	cmd := exec.Command("git", "-C", repo, "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
+	return cmd.Run() == nil
+}
+
+// checkWorktreeExists checks if a worktree exists for the given branch
+func checkWorktreeExists(branch string) bool {
+	worktrees, err := parseWorktrees()
+	if err != nil {
+		return false
+	}
+
+	for _, wt := range worktrees {
+		if wt.Branch == branch {
+			return true
+		}
+	}
+	return false
+}
+
+// ResolveBranchName attempts to resolve a partial branch name to a full branch name
+// Returns the resolved name, or original input if no unique match found
+func ResolveBranchName(input string, availableBranches []string) (string, error) {
+	// Exact match first
+	for _, branch := range availableBranches {
+		if branch == input {
+			return branch, nil
+		}
+	}
+
+	// Find matches using different strategies
+	var exactMatches []string
+	var prefixMatches []string
+	var containsMatches []string
+
+	inputLower := strings.ToLower(input)
+
+	for _, branch := range availableBranches {
+		branchLower := strings.ToLower(branch)
+
+		if branchLower == inputLower {
+			exactMatches = append(exactMatches, branch)
+		} else if strings.HasPrefix(branchLower, inputLower) {
+			prefixMatches = append(prefixMatches, branch)
+		} else if strings.Contains(branchLower, inputLower) {
+			containsMatches = append(containsMatches, branch)
+		}
+	}
+
+	// Return single exact match
+	if len(exactMatches) == 1 {
+		return exactMatches[0], nil
+	}
+
+	// Return single prefix match
+	if len(prefixMatches) == 1 {
+		return prefixMatches[0], nil
+	}
+
+	// If multiple matches, return error with suggestions
+	allMatches := append(exactMatches, prefixMatches...)
+	allMatches = append(allMatches, containsMatches...)
+
+	if len(allMatches) == 0 {
+		return "", fmt.Errorf("branch '%s' not found", input)
+	}
+
+	if len(allMatches) > 1 {
+		suggestions := suggestSimilarBranches(input, allMatches)
+		return "", fmt.Errorf("branch '%s' is ambiguous. Did you mean:\n%s", input, strings.Join(suggestions, "\n"))
+	}
+
+	return allMatches[0], nil
+}
+
+// suggestSimilarBranches returns formatted suggestions for similar branch names
+func suggestSimilarBranches(input string, candidates []string) []string {
+	// Sort by relevance (shorter branches first, then alphabetical)
+	sort.Slice(candidates, func(i, j int) bool {
+		lenI, lenJ := len(candidates[i]), len(candidates[j])
+		if lenI == lenJ {
+			return candidates[i] < candidates[j]
+		}
+		return lenI < lenJ
+	})
+
+	// Format as numbered list (limit to 5 suggestions)
+	suggestions := make([]string, 0, min(5, len(candidates)))
+	for i, branch := range candidates {
+		if i >= 5 {
+			break
+		}
+		suggestions = append(suggestions, fmt.Sprintf("  %d) %s", i+1, branch))
+	}
+
+	return suggestions
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

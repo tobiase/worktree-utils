@@ -12,7 +12,7 @@ func TestGetAvailableCommands(t *testing.T) {
 	}
 
 	// Test that core commands are present
-	expectedCommands := []string{"list", "go", "add", "rm", "new", "setup", "help"}
+	expectedCommands := []string{"list", "go", "rm", "new", "setup", "help"}
 	commandMap := make(map[string]bool)
 
 	for _, cmd := range commands {

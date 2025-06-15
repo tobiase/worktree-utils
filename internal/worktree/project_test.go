@@ -64,10 +64,14 @@ func TestNewWorktree(t *testing.T) {
 			},
 		},
 		{
-			name:   "create worktree with existing branch",
-			branch: "main",
+			name:   "smart worktree creation with existing branch",
+			branch: "existing-branch",
 			setup: func() (string, func()) {
 				repo, cleanup := helpers.CreateTestRepo(t)
+				// Create an existing branch first
+				helpers.CreateTestBranch(t, repo, "existing-branch")
+				// Switch back to main so we're not on the target branch
+				helpers.GetGitOutput(t, repo, "checkout", "main")
 				oldWd, _ := os.Getwd()
 				_ = os.Chdir(repo)
 				return repo, func() {
@@ -75,7 +79,13 @@ func TestNewWorktree(t *testing.T) {
 					cleanup()
 				}
 			},
-			wantErr: true, // Should fail because main already exists
+			wantErr: false, // Smart behavior: should create worktree for existing branch
+			check: func(t *testing.T, repo, branch string) {
+				// Check worktree was created for existing branch
+				worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
+				worktreePath := filepath.Join(worktreeBase, branch)
+				helpers.AssertDirExists(t, worktreePath)
+			},
 		},
 	}
 

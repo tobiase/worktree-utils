@@ -35,8 +35,69 @@ func GetRelativePath(absolutePath string) (string, error) {
 	return relPath, nil
 }
 
-// NewWorktree creates a new worktree and returns the path to switch to
-func NewWorktree(branch string, baseBranch string, cfg *config.Manager) (string, error) {
+// SmartNewWorktree creates or switches to a worktree intelligently based on branch state
+// This is the "Do What I Mean" implementation that handles all cases:
+// 1. Branch doesn't exist -> Create branch + worktree + switch
+// 2. Branch exists, no worktree -> Create worktree + switch
+// 3. Branch + worktree exist -> Just switch
+func SmartNewWorktree(branch string, baseBranch string, cfg *config.Manager) (string, error) {
+	branchExists := checkBranchExists(branch)
+	worktreeExists := checkWorktreeExists(branch)
+
+	if worktreeExists {
+		// Case 3: Both branch and worktree exist - just switch
+		return Go(branch)
+	}
+
+	if branchExists {
+		// Case 2: Branch exists but no worktree - create worktree only
+		fmt.Printf("Branch '%s' exists, creating worktree...\n", branch)
+		return createWorktreeForExistingBranch(branch, cfg)
+	}
+
+	// Case 1: Branch doesn't exist - create branch + worktree
+	fmt.Printf("Creating new branch '%s' and worktree...\n", branch)
+	return createBranchAndWorktree(branch, baseBranch, cfg)
+}
+
+// createWorktreeForExistingBranch creates a worktree for an existing branch (old Add behavior)
+func createWorktreeForExistingBranch(branch string, cfg *config.Manager) (string, error) {
+	repo, err := GetRepoRoot()
+	if err != nil {
+		return "", err
+	}
+
+	worktreeBase, err := GetWorktreeBase()
+	if err != nil {
+		return "", err
+	}
+
+	// Use project-specific worktree base if configured
+	if cfg != nil && cfg.GetCurrentProject() != nil {
+		if projectBase := cfg.GetCurrentProject().Settings.WorktreeBase; projectBase != "" {
+			worktreeBase = projectBase
+		}
+	}
+
+	// Create worktree base directory if it doesn't exist
+	if err := os.MkdirAll(worktreeBase, 0755); err != nil {
+		return "", fmt.Errorf("failed to create worktree directory: %v", err)
+	}
+
+	worktreePath := filepath.Join(worktreeBase, branch)
+	cmd := exec.Command("git", "-C", repo, "worktree", "add", worktreePath, branch)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to create worktree: %v", err)
+	}
+
+	return worktreePath, nil
+}
+
+// createBranchAndWorktree creates a new branch and its worktree (old NewWorktree behavior)
+func createBranchAndWorktree(branch string, baseBranch string, cfg *config.Manager) (string, error) {
 	repo, err := GetRepoRoot()
 	if err != nil {
 		return "", err
@@ -61,20 +122,15 @@ func NewWorktree(branch string, baseBranch string, cfg *config.Manager) (string,
 
 	worktreePath := filepath.Join(worktreeBase, branch)
 
-	// Check if worktree already exists
-	if _, err := os.Stat(worktreePath); err == nil {
-		return "", fmt.Errorf("worktree '%s' already exists", branch)
-	}
-
-	// Create the worktree
+	// Create the worktree with new branch
 	args := []string{"-C", repo, "worktree", "add", worktreePath}
 
 	if baseBranch != "" {
 		// Create new branch from base
 		args = append(args, "-b", branch, baseBranch)
 	} else {
-		// Try to checkout existing branch or create from HEAD
-		args = append(args, branch)
+		// Create new branch from current HEAD
+		args = append(args, "-b", branch)
 	}
 
 	cmd := exec.Command("git", args...)
@@ -86,6 +142,12 @@ func NewWorktree(branch string, baseBranch string, cfg *config.Manager) (string,
 	}
 
 	return worktreePath, nil
+}
+
+// NewWorktree is kept for backwards compatibility but now uses SmartNewWorktree
+// NOTE: No backwards compatibility needed per user request - this can be removed
+func NewWorktree(branch string, baseBranch string, cfg *config.Manager) (string, error) {
+	return SmartNewWorktree(branch, baseBranch, cfg)
 }
 
 // CopyEnvFile copies .env files from current directory to the same relative path in target worktree

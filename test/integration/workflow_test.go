@@ -297,12 +297,15 @@ func TestErrorHandling(t *testing.T) {
 			},
 		},
 		{
-			name:        "add existing branch",
-			args:        []string{"add", "main"},
-			expectError: true,
-			errorMsg:    "already",
+			name:        "smart new with existing branch",
+			args:        []string{"new", "test-branch"},
+			expectError: false, // Smart behavior: should create worktree for existing branch
 			setup: func() func() {
 				repo, cleanup := helpers.CreateTestRepo(t)
+				// Create an existing branch first
+				helpers.CreateTestBranch(t, repo, "test-branch")
+				// Switch back to main so we're not on the target branch
+				helpers.GetGitOutput(t, repo, "checkout", "main")
 				oldWd, _ := os.Getwd()
 				_ = os.Chdir(repo)
 				return func() {

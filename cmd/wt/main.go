@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 
 	"github.com/tobiase/worktree-utils/internal/completion"
 	"github.com/tobiase/worktree-utils/internal/config"
@@ -34,6 +35,24 @@ const (
 
 const shellWrapper = `# Shell function to handle CD: and EXEC: prefixes
 wt() {
+  # Commands that need interactive terminal access (no output capture)
+  if [ $# -eq 0 ] || [[ "$*" == *"--fuzzy"* ]] || [[ "$*" == *"-f"* ]]; then
+    # Run interactively, then get CD path separately
+    "${WT_BIN:-wt-bin}" "$@"
+    exit_code=$?
+
+    # If successful and it's a 'go' command, try to get the CD path
+    if [ $exit_code -eq 0 ] && [[ "$1" == "go" || $# -eq 0 ]]; then
+      # Use a separate call to get just the CD path without interaction
+      cd_result=$("${WT_BIN:-wt-bin}" go "$2" 2>/dev/null)
+      if [[ "$cd_result" == "CD:"* ]]; then
+        cd "${cd_result#CD:}"
+      fi
+    fi
+    return $exit_code
+  fi
+
+  # Non-interactive commands use output capture
   output=$("${WT_BIN:-wt-bin}" "$@" 2>&1)
   exit_code=$?
 
@@ -82,6 +101,12 @@ func main() {
 
 	cmd := resolveCommandAlias(os.Args[1])
 	args := os.Args[2:]
+
+	// Special handling for numeric commands (direct index access: wt 0, wt 1, etc.)
+	if isNumericCommand(cmd) {
+		handleGoCommand([]string{cmd})
+		return
+	}
 
 	// Special handling for setup command (doesn't need config)
 	if cmd == "setup" {
@@ -156,8 +181,6 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 		fmt.Print(shellWrapper)
 	case "list":
 		handleListCommand()
-	case "add":
-		handleAddCommand(args, configMgr)
 	case "rm":
 		handleRemoveCommand(args)
 	case "go":
@@ -181,19 +204,14 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 	}
 }
 
-func handleListCommand() {
-	if err := worktree.List(); err != nil {
-		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
-	}
+// isNumericCommand checks if the command is a numeric index for direct access
+func isNumericCommand(cmd string) bool {
+	_, err := strconv.Atoi(cmd)
+	return err == nil
 }
 
-func handleAddCommand(args []string, configMgr *config.Manager) {
-	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Usage: wt add <branch>\n")
-		os.Exit(1)
-	}
-	if err := worktree.Add(args[0], configMgr); err != nil {
+func handleListCommand() {
+	if err := worktree.List(); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 		os.Exit(1)
 	}
@@ -216,6 +234,20 @@ func handleRemoveCommand(args []string) {
 
 	if target == "" {
 		target = selectBranchInteractively(useFuzzy, "Usage: wt rm <branch>")
+	} else {
+		// Resolve target with fuzzy matching
+		branches, branchErr := worktree.GetAvailableBranches()
+		if branchErr != nil {
+			fmt.Fprintf(os.Stderr, "wt: %v\n", branchErr)
+			os.Exit(1)
+		}
+
+		resolvedTarget, resolveErr := worktree.ResolveBranchName(target, branches)
+		if resolveErr != nil {
+			fmt.Fprintf(os.Stderr, "wt: %v\n", resolveErr)
+			os.Exit(1)
+		}
+		target = resolvedTarget
 	}
 
 	if err := worktree.Remove(target); err != nil {
@@ -225,13 +257,18 @@ func handleRemoveCommand(args []string) {
 }
 
 func handleGoCommand(args []string) {
-	var path string
-	var err error
+	useFuzzy, target := parseGoCommandArgs(args)
+	path, err := resolveGoTarget(target, useFuzzy)
 
-	// Parse flags
-	var useFuzzy bool
-	var target string
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("CD:%s", path)
+}
 
+// parseGoCommandArgs parses the arguments for the go command
+func parseGoCommandArgs(args []string) (useFuzzy bool, target string) {
 	for _, arg := range args {
 		if arg == fuzzyFlag || arg == fuzzyFlagShort {
 			useFuzzy = true
@@ -241,41 +278,64 @@ func handleGoCommand(args []string) {
 			break
 		}
 	}
+	return useFuzzy, target
+}
 
+// resolveGoTarget resolves the target for the go command
+func resolveGoTarget(target string, useFuzzy bool) (string, error) {
 	if target == "" {
-		// No target specified - check if we should use interactive selection
-		branches, branchErr := worktree.GetAvailableBranches()
-		if branchErr != nil {
-			// Fall back to repo root if we can't get branches
-			path, err = worktree.GetRepoRoot()
-		} else if interactive.ShouldUseFuzzy(len(branches), useFuzzy) {
-			// Use interactive selection
-			selectedBranch, selectErr := worktree.SelectBranchInteractively()
-			if selectErr != nil {
-				if selectErr == interactive.ErrUserCancelled {
-					fmt.Fprintf(os.Stderr, "wt: selection cancelled\n")
-					os.Exit(1)
-				}
-				fmt.Fprintf(os.Stderr, "wt: %v\n", selectErr)
+		return handleNoTarget(useFuzzy)
+	}
+	return handleTargetProvided(target)
+}
+
+// handleNoTarget handles the case where no target is specified
+func handleNoTarget(useFuzzy bool) (string, error) {
+	branches, branchErr := worktree.GetAvailableBranches()
+	if branchErr != nil {
+		// Fall back to repo root if we can't get branches
+		return worktree.GetRepoRoot()
+	}
+
+	if interactive.ShouldUseFuzzy(len(branches), useFuzzy) {
+		// Use interactive selection
+		selectedBranch, selectErr := worktree.SelectBranchInteractively()
+		if selectErr != nil {
+			if selectErr == interactive.ErrUserCancelled {
+				fmt.Fprintf(os.Stderr, "wt: selection cancelled\n")
 				os.Exit(1)
 			}
-			target = selectedBranch
-		} else {
-			// Fall back to repo root
-			path, err = worktree.GetRepoRoot()
+			fmt.Fprintf(os.Stderr, "wt: %v\n", selectErr)
+			os.Exit(1)
 		}
+		return handleTargetProvided(selectedBranch)
 	}
 
-	// If we have a target, use it
-	if target != "" {
-		path, err = worktree.Go(target)
+	// Fall back to repo root
+	return worktree.GetRepoRoot()
+}
+
+// handleTargetProvided handles the case where a target is provided
+func handleTargetProvided(target string) (string, error) {
+	// Check if target is numeric (index-based access)
+	if _, numErr := strconv.Atoi(target); numErr == nil {
+		// Numeric target - use directly with worktree.Go
+		return worktree.Go(target)
 	}
 
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+	// Non-numeric target - resolve with fuzzy matching
+	branches, branchErr := worktree.GetAvailableBranches()
+	if branchErr != nil {
+		return "", branchErr
 	}
-	fmt.Printf("CD:%s", path)
+
+	// Try to resolve the target with fuzzy matching
+	resolvedTarget, resolveErr := worktree.ResolveBranchName(target, branches)
+	if resolveErr != nil {
+		return "", resolveErr
+	}
+
+	return worktree.Go(resolvedTarget)
 }
 
 func handleNewCommand(args []string, configMgr *config.Manager) {
@@ -285,7 +345,9 @@ func handleNewCommand(args []string, configMgr *config.Manager) {
 	}
 
 	branch, baseBranch := parseNewCommandArgs(args)
-	path, err := worktree.NewWorktree(branch, baseBranch, configMgr)
+
+	// Use smart worktree creation - handles all branch states intelligently
+	path, err := worktree.SmartNewWorktree(branch, baseBranch, configMgr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 		os.Exit(1)
@@ -628,17 +690,21 @@ func getCoreUsage() string {
 
 Interactive features:
   wt                  Launch interactive command selection (when no command specified)
+  wt 0, wt 1, wt 2    Quick switch to worktree by index (shortcut for 'wt go 0')
   --fuzzy, -f         Force interactive selection for branch/worktree arguments
 
-Core commands:
+Smart commands (with fuzzy branch matching):
   list, ls            List all worktrees
-  add <branch>        Add a new worktree
-  rm <branch>         Remove a worktree
-                      Options: --fuzzy, -f (force interactive selection)
-  go, switch, s       Switch to a worktree (no args = repo root)
-                      Options: --fuzzy, -f (force interactive selection)
-  new <branch>        Create and switch to a new worktree
+  new <branch>        Smart worktree creation - handles all branch states:
+                      • Branch doesn't exist → Create branch + worktree + switch
+                      • Branch exists, no worktree → Create worktree + switch
+                      • Branch + worktree exist → Just switch
                       Options: --base <branch>
+  go, switch, s       Switch to a worktree (no args = repo root)
+                      Supports fuzzy matching: 'wt go mai' → switches to 'main'
+                      Options: --fuzzy, -f (force interactive selection)
+  rm <branch>         Remove a worktree (supports fuzzy matching)
+                      Options: --fuzzy, -f (force interactive selection)
 
 Utility commands:
   env-copy <branch>   Copy .env files to another worktree

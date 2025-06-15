@@ -28,9 +28,8 @@ func TestShowUsage(t *testing.T) {
 	// Check for key elements in usage
 	expectedElements := []string{
 		"Usage: wt <command>",
-		"Core commands:",
+		"Smart commands (with fuzzy branch matching):",
 		"list",
-		"add",
 		"rm",
 		"go",
 		"new",
@@ -145,8 +144,8 @@ func TestCommandlineArgParsing(t *testing.T) {
 		},
 		{
 			name:     "command with args",
-			args:     []string{"wt", "add", "feature-branch"},
-			wantCmd:  "add",
+			args:     []string{"wt", "new", "feature-branch"},
+			wantCmd:  "new",
 			wantArgs: []string{"feature-branch"},
 		},
 		{
