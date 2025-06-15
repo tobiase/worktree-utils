@@ -42,36 +42,46 @@ func createBranchPreview(i, width, height int) string {
 
 	var preview strings.Builder
 	preview.WriteString(fmt.Sprintf("Branch: %s\n", wt.Branch))
-	preview.WriteString(fmt.Sprintf("Path:   %s\n\n", wt.Path))
+	preview.WriteString(fmt.Sprintf("Path:   %s\n", wt.Path))
 
-	// Add git log for the branch
+	// Add branch comparison info
+	branchInfo, err := getBranchInfo(wt.Branch)
+	if err == nil && branchInfo != "" {
+		preview.WriteString(fmt.Sprintf("Status: %s\n", branchInfo))
+	}
+
+	preview.WriteString("\n")
+
+	// Add git status if available
+	gitStatus, err := getGitStatus(wt.Path)
+	if err == nil && gitStatus != "" {
+		preview.WriteString(fmt.Sprintf("Working directory: %s\n\n", gitStatus))
+	} else {
+		preview.WriteString("Working directory: Clean\n\n")
+	}
+
+	// Add recent commits
 	gitLog, err := getGitLog(wt.Branch, 5)
 	if err != nil {
-		preview.WriteString("Recent commits: (unable to load)\n")
+		preview.WriteString("Recent commits: (unable to load)")
 	} else {
 		preview.WriteString("Recent commits:\n")
 		preview.WriteString(gitLog)
 	}
 
-	// Add git status if available
-	gitStatus, err := getGitStatus(wt.Path)
-	if err == nil && gitStatus != "" {
-		preview.WriteString("\nWorking directory status:\n")
-		preview.WriteString(gitStatus)
-	}
-
 	return preview.String()
 }
 
-// getGitLog returns recent commits for a branch
+// getGitLog returns recent commit messages for a branch (without hashes)
 func getGitLog(branch string, count int) (string, error) {
 	repo, err := GetRepoRoot()
 	if err != nil {
 		return "", err
 	}
 
+	// Get just commit messages, not hashes
 	cmd := exec.Command("git", "-C", repo, "log",
-		"--oneline",
+		"--pretty=format:• %s",
 		fmt.Sprintf("-%d", count),
 		branch)
 
@@ -81,6 +91,55 @@ func getGitLog(branch string, count int) (string, error) {
 	}
 
 	return string(output), nil
+}
+
+// getBranchInfo returns branch comparison information
+func getBranchInfo(branch string) (string, error) {
+	repo, err := GetRepoRoot()
+	if err != nil {
+		return "", err
+	}
+
+	// Skip comparison for main branch
+	if branch == "main" || branch == "master" {
+		return "Main branch", nil
+	}
+
+	// Check if main exists, fallback to master
+	mainBranch := "main"
+	cmd := exec.Command("git", "-C", repo, "rev-parse", "--verify", "main")
+	if cmd.Run() != nil {
+		cmd = exec.Command("git", "-C", repo, "rev-parse", "--verify", "master")
+		if cmd.Run() != nil {
+			return "No main/master branch found", nil
+		}
+		mainBranch = "master"
+	}
+
+	// Get ahead/behind count
+	cmd = exec.Command("git", "-C", repo, "rev-list", "--left-right", "--count",
+		fmt.Sprintf("%s...%s", mainBranch, branch))
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	counts := strings.Fields(strings.TrimSpace(string(output)))
+	if len(counts) != 2 {
+		return "Up to date", nil
+	}
+
+	behind := counts[0]
+	ahead := counts[1]
+
+	if ahead == "0" && behind == "0" {
+		return fmt.Sprintf("Up to date with %s", mainBranch), nil
+	} else if ahead == "0" {
+		return fmt.Sprintf("%s commits behind %s", behind, mainBranch), nil
+	} else if behind == "0" {
+		return fmt.Sprintf("%s commits ahead of %s", ahead, mainBranch), nil
+	}
+	return fmt.Sprintf("%s ahead, %s behind %s", ahead, behind, mainBranch), nil
 }
 
 // getGitStatus returns the working directory status for a worktree
