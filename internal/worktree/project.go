@@ -272,3 +272,181 @@ func copyEnvFilesRecursive(sourceDir, targetDir string) error {
 		return copyFile(path, targetPath)
 	})
 }
+
+// SyncEnvFiles copies .env files from current directory to target worktree(s)
+func SyncEnvFiles(targetBranch string, recursive bool, syncAll bool) error {
+	if syncAll {
+		return syncEnvToAllWorktrees(recursive)
+	}
+	return CopyEnvFile(targetBranch, recursive)
+}
+
+// syncEnvToAllWorktrees copies current .env files to all other worktrees
+func syncEnvToAllWorktrees(recursive bool) error {
+	worktrees, err := parseWorktrees()
+	if err != nil {
+		return err
+	}
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %v", err)
+	}
+
+	// Determine which worktree we're currently in
+	var currentWorktree string
+	for _, wt := range worktrees {
+		if strings.HasPrefix(currentDir, wt.Path) {
+			currentWorktree = wt.Branch
+			break
+		}
+	}
+
+	var syncCount int
+	var errors []string
+
+	for _, wt := range worktrees {
+		// Skip the current worktree
+		if wt.Branch == currentWorktree {
+			continue
+		}
+
+		err := CopyEnvFile(wt.Branch, recursive)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %v", wt.Branch, err))
+		} else {
+			syncCount++
+		}
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("failed to sync to some worktrees:\n%s", strings.Join(errors, "\n"))
+	}
+
+	fmt.Printf("✓ Synced .env files to %d worktrees\n", syncCount)
+	return nil
+}
+
+// DiffEnvFiles shows differences between current .env and target worktree
+func DiffEnvFiles(targetBranch string) error {
+	// Get current directory and .env file
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %v", err)
+	}
+
+	repoRoot, err := GetRepoRoot()
+	if err != nil {
+		return err
+	}
+
+	relPath, err := filepath.Rel(repoRoot, currentDir)
+	if err != nil {
+		return fmt.Errorf("failed to get relative path: %v", err)
+	}
+
+	sourceEnv := filepath.Join(currentDir, ".env")
+	if _, err := os.Stat(sourceEnv); os.IsNotExist(err) {
+		return fmt.Errorf("no .env file found in current directory")
+	}
+
+	// Find target worktree
+	worktrees, err := parseWorktrees()
+	if err != nil {
+		return err
+	}
+
+	var targetPath string
+	for _, wt := range worktrees {
+		if wt.Branch == targetBranch {
+			targetPath = wt.Path
+			break
+		}
+	}
+
+	if targetPath == "" {
+		return fmt.Errorf("worktree '%s' not found", targetBranch)
+	}
+
+	targetEnv := filepath.Join(targetPath, relPath, ".env")
+	if _, err := os.Stat(targetEnv); os.IsNotExist(err) {
+		fmt.Printf("Target worktree '%s' has no .env file at %s\n", targetBranch, relPath)
+		return nil
+	}
+
+	// Read both files
+	sourceContent, err := os.ReadFile(sourceEnv)
+	if err != nil {
+		return fmt.Errorf("failed to read source .env: %v", err)
+	}
+
+	targetContent, err := os.ReadFile(targetEnv)
+	if err != nil {
+		return fmt.Errorf("failed to read target .env: %v", err)
+	}
+
+	// Simple diff output
+	if string(sourceContent) == string(targetContent) {
+		fmt.Printf("✓ .env files are identical\n")
+		return nil
+	}
+
+	fmt.Printf("Differences between current .env and %s worktree:\n", targetBranch)
+	fmt.Printf("Current (%s):\n", relPath)
+	fmt.Printf("%s\n", sourceContent)
+	fmt.Printf("\nTarget (%s):\n", targetBranch)
+	fmt.Printf("%s\n", targetContent)
+
+	return nil
+}
+
+// ListEnvFiles shows all .env files across all worktrees
+func ListEnvFiles() error {
+	worktrees, err := parseWorktrees()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%-20s %-30s %s\n", "Worktree", "Path", "Status")
+	fmt.Printf("%-20s %-30s %s\n", "--------", "----", "------")
+
+	for _, wt := range worktrees {
+		// Look for .env files in this worktree
+		envPath := filepath.Join(wt.Path, ".env")
+		if info, err := os.Stat(envPath); err == nil {
+			size := info.Size()
+			fmt.Printf("%-20s %-30s %d bytes\n", wt.Branch, ".env", size)
+		}
+
+		// Look for .env files recursively
+		err := filepath.Walk(wt.Path, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return nil // Skip errors, continue walking
+			}
+
+			if info.IsDir() || !strings.HasSuffix(info.Name(), ".env") {
+				return nil
+			}
+
+			// Skip the root .env we already handled
+			if path == envPath {
+				return nil
+			}
+
+			relPath, err := filepath.Rel(wt.Path, path)
+			if err != nil {
+				return nil
+			}
+
+			size := info.Size()
+			fmt.Printf("%-20s %-30s %d bytes\n", wt.Branch, relPath, size)
+			return nil
+		})
+
+		if err != nil {
+			fmt.Printf("%-20s %-30s error: %v\n", wt.Branch, "N/A", err)
+		}
+	}
+
+	return nil
+}
