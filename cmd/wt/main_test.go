@@ -34,7 +34,7 @@ func TestShowUsage(t *testing.T) {
 		"go",
 		"new",
 		"Utility commands:",
-		"env-copy",
+		"env",
 		"project init",
 		"Setup commands:",
 		"setup",

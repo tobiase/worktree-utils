@@ -34,6 +34,8 @@ const (
 // Command constants
 const (
 	shellInitCmd = "shell-init"
+	listCmd      = "list"
+	helpCmd      = "help"
 )
 
 const shellWrapper = `# Shell function to handle CD: and EXEC: prefixes
@@ -182,7 +184,7 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 	switch cmd {
 	case shellInitCmd:
 		fmt.Print(shellWrapper)
-	case "list":
+	case listCmd:
 		handleListCommand(args)
 	case "rm":
 		handleRemoveCommand(args)
@@ -192,6 +194,8 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 		handleNewCommand(args, configMgr)
 	case "env-copy":
 		handleEnvCopyCommand(args)
+	case "env":
+		handleEnvCommand(args)
 	case "project":
 		handleProjectCommand(args, configMgr)
 	case "completion":
@@ -200,7 +204,7 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 		handleVersionCommand(args)
 	case "update":
 		handleUpdateCommand(args)
-	case "help":
+	case helpCmd:
 		showUsage()
 	default:
 		handleCustomCommand(cmd, configMgr)
@@ -408,6 +412,9 @@ func handleEnvCopyCommand(args []string) {
 		return
 	}
 
+	// Show deprecation warning
+	fmt.Fprintf(os.Stderr, "Warning: 'wt env-copy' is deprecated. Use 'wt env sync' instead.\n")
+
 	// Parse flags
 	var useFuzzy bool
 	var target string
@@ -435,6 +442,172 @@ func handleEnvCopyCommand(args []string) {
 	if err := worktree.CopyEnvFile(target, recursive); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+func handleEnvCommand(args []string) {
+	if help.HasHelpFlag(args, "env") {
+		return
+	}
+
+	if len(args) == 0 {
+		// Interactive mode - show menu
+		handleEnvInteractive()
+		return
+	}
+
+	subcommand := args[0]
+	subargs := args[1:]
+
+	switch subcommand {
+	case "sync":
+		handleEnvSyncCommand(subargs)
+	case "diff":
+		handleEnvDiffCommand(subargs)
+	case "list":
+		handleEnvListCommand(subargs)
+	default:
+		fmt.Fprintf(os.Stderr, "wt: unknown env subcommand '%s'\n", subcommand)
+		fmt.Fprintf(os.Stderr, "Available subcommands: sync, diff, list\n")
+		fmt.Fprintf(os.Stderr, "Use 'wt env --help' for detailed help\n")
+		os.Exit(1)
+	}
+}
+
+func handleEnvSyncCommand(args []string) {
+	// Parse flags
+	var useFuzzy bool
+	var recursive bool
+	var syncAll bool
+	var target string
+
+	for _, arg := range args {
+		if arg == fuzzyFlag || arg == fuzzyFlagShort {
+			useFuzzy = true
+		} else if arg == "--recursive" {
+			recursive = true
+		} else if arg == "--all" {
+			syncAll = true
+		} else if arg == helpFlag || arg == helpFlagShort {
+			// Skip help flags - they're handled separately
+			continue
+		} else {
+			// First non-flag argument is the target
+			target = arg
+			break
+		}
+	}
+
+	if syncAll {
+		if err := worktree.SyncEnvFiles("", recursive, true); err != nil {
+			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if target == "" {
+		target = selectBranchInteractively(useFuzzy, "Usage: wt env sync <branch> [--recursive] [--all]")
+	} else {
+		// Resolve target with fuzzy matching
+		branches, branchErr := worktree.GetAvailableBranches()
+		if branchErr != nil {
+			fmt.Fprintf(os.Stderr, "wt: %v\n", branchErr)
+			os.Exit(1)
+		}
+
+		resolvedTarget, resolveErr := worktree.ResolveBranchName(target, branches)
+		if resolveErr != nil {
+			fmt.Fprintf(os.Stderr, "wt: %v\n", resolveErr)
+			os.Exit(1)
+		}
+		target = resolvedTarget
+	}
+
+	if err := worktree.SyncEnvFiles(target, recursive, false); err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleEnvDiffCommand(args []string) {
+	// Parse flags and target
+	var useFuzzy bool
+	var target string
+
+	for _, arg := range args {
+		if arg == fuzzyFlag || arg == fuzzyFlagShort {
+			useFuzzy = true
+		} else if arg == helpFlag || arg == helpFlagShort {
+			// Skip help flags - they're handled separately
+			continue
+		} else {
+			// First non-flag argument is the target
+			target = arg
+			break
+		}
+	}
+
+	if target == "" {
+		target = selectBranchInteractively(useFuzzy, "Usage: wt env diff <branch>")
+	} else {
+		// Resolve target with fuzzy matching
+		branches, branchErr := worktree.GetAvailableBranches()
+		if branchErr != nil {
+			fmt.Fprintf(os.Stderr, "wt: %v\n", branchErr)
+			os.Exit(1)
+		}
+
+		resolvedTarget, resolveErr := worktree.ResolveBranchName(target, branches)
+		if resolveErr != nil {
+			fmt.Fprintf(os.Stderr, "wt: %v\n", resolveErr)
+			os.Exit(1)
+		}
+		target = resolvedTarget
+	}
+
+	if err := worktree.DiffEnvFiles(target); err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleEnvListCommand(args []string) {
+	if err := worktree.ListEnvFiles(); err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleEnvInteractive() {
+	if !interactive.IsInteractive() {
+		fmt.Fprintf(os.Stderr, "Usage: wt env <subcommand> [options]\n")
+		fmt.Fprintf(os.Stderr, "Subcommands: sync, diff, list\n")
+		fmt.Fprintf(os.Stderr, "Use 'wt env --help' for detailed help\n")
+		os.Exit(1)
+	}
+
+	// Show interactive menu for env operations
+	options := []string{"sync", "diff", listCmd, helpCmd}
+	selected, err := interactive.SelectString(options, "Environment operation:")
+	if err != nil {
+		if err == interactive.ErrUserCancelled {
+			fmt.Fprintf(os.Stderr, "wt: selection cancelled\n")
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+
+	switch selected {
+	case "sync":
+		handleEnvSyncCommand([]string{})
+	case "diff":
+		handleEnvDiffCommand([]string{})
+	case listCmd:
+		handleEnvListCommand([]string{})
+	case helpCmd:
+		help.ShowCommandHelp("env")
 	}
 }
 
@@ -763,8 +936,9 @@ Smart commands (with fuzzy branch matching):
                       Options: --fuzzy, -f (force interactive selection)
 
 Utility commands:
-  env-copy <branch>   Copy .env files to another worktree
-                      Options: --fuzzy, -f, --recursive
+  env <subcommand>    Unified environment file management
+                      Subcommands: sync, diff, list
+                      Options: --all, --fuzzy, -f, --recursive
   project init <name> Initialize project configuration
 
 Setup commands:

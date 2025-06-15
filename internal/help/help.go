@@ -231,7 +231,38 @@ var commandHelpMap = map[string]CommandHelp{
 				Example:     "wt env-copy -f",
 			},
 		},
-		SeeAlso: []string{"wt go", "wt list"},
+		SeeAlso: []string{"wt env", "wt go", "wt list"},
+	},
+	"env": {
+		Name:        "env",
+		Usage:       "wt env <subcommand> [options]",
+		Description: "Unified environment file management across worktrees",
+		Examples: []string{
+			"wt env sync feature          # Copy .env files to feature worktree",
+			"wt env sync --all            # Sync .env to all other worktrees",
+			"wt env diff main             # Show differences with main worktree",
+			"wt env list                  # List all .env files across worktrees",
+			"wt env                       # Interactive environment operations",
+		},
+		Flags: []FlagHelp{
+			{
+				Flag:        "--all",
+				Description: "Apply operation to all worktrees (sync only)",
+				Example:     "wt env sync --all",
+			},
+			{
+				Flag:        "--recursive",
+				Description: "Include all .env* files recursively",
+				Example:     "wt env sync feature --recursive",
+			},
+			{
+				Flag:        "--fuzzy",
+				ShortFlag:   "-f",
+				Description: "Force interactive selection of target worktree",
+				Example:     "wt env sync -f",
+			},
+		},
+		SeeAlso: []string{"wt env-copy", "wt go", "wt list"},
 	},
 	"project": {
 		Name:        "project",
