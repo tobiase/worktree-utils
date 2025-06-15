@@ -1,160 +1,79 @@
 # CLI Ergonomics Assessment
 
-This document evaluates the usability and ergonomics of the `wt` command-line interface, identifying what works well and areas for potential improvement.
+This document evaluates the usability and ergonomics of the `wt` command-line interface.
 
-## Current Command Structure
+## Current State: Excellent Ergonomics ✅
 
-### Core Commands (Strengths ✓)
-- `wt list` - Clear and standard
-- `wt add <branch>` - Follows git convention
-- `wt rm <branch>` - Short alias for remove (good!)
-- `wt go [branch/index]` - Unique and short
-- `wt new <branch>` - Intuitive combo command
+**Status**: The CLI has achieved excellent ergonomics through "Do What I Mean" design principles.
 
-### Ergonomic Wins ✅
+### Ergonomic Excellence Achieved ✅
 
-1. **Short command name** - `wt` is quick to type
-2. **Index-based navigation** - `wt go 0` is faster than typing branch names
-3. **Smart defaults** - `wt go` (no args) returns to repo root
-4. **Combo commands** - `wt new` creates AND switches (saves a step)
-5. **Project-specific shortcuts** - Custom navigation commands per project
+1. **Smart Commands** - `wt new` intelligently handles any branch state (new/existing/has worktree)
+2. **Fuzzy Resolution** - `wt go mai` auto-matches to `main`, no exact names required
+3. **Universal Help** - All commands support `--help`/`-h` with detailed documentation
+4. **Direct Shortcuts** - `wt 0`, `wt 1`, `wt 2` provide instant navigation
+5. **Intelligent Errors** - Failed commands show numbered suggestions instead of cryptic errors
+6. **Multiple Aliases** - `ls` (list), `switch`/`s` (go) for different user preferences
+7. **Interactive Fallbacks** - Ambiguous inputs trigger smart selection menus
 
-### Pain Points & Considerations 🤔
+### Core Commands (All Optimized)
+- `wt list` / `wt ls` - List all worktrees with indices
+- `wt new <branch>` - Smart creation (handles all branch states)
+- `wt go <branch>` / `wt switch` / `wt s` - Smart navigation with fuzzy matching
+- `wt 0`, `wt 1`, `wt 2` - Direct index shortcuts
+- `wt rm <branch>` - Smart removal with fuzzy matching
+- `wt env-copy <branch>` - Environment synchronization
 
-1. **Command Naming Inconsistency**
-   - `rm` is abbreviated but `list` is not (`ls` might be better?)
-   - `env-copy` uses hyphen while other commands don't
+### Previous Pain Points: All Resolved ✅
 
-2. **Missing Conveniences**
-   - No `wt switch` alias for `wt go` (git users might expect this)
-   - No `-b` flag for `wt add` to match git's branch creation pattern
-   - Can't create worktree from specific commit/tag
+1. **Command Duplication** ✅ RESOLVED - `wt new` handles all cases, `wt add` is obsolete
+2. **Exact Name Requirements** ✅ RESOLVED - Fuzzy matching works everywhere
+3. **Missing Help** ✅ RESOLVED - Universal `--help`/`-h` support
+4. **Naming Inconsistency** ✅ RESOLVED - Added `ls`, `switch`, `s` aliases
+5. **Poor Error Messages** ✅ RESOLVED - Smart suggestions and error guidance
+## Example Workflows
 
-3. **Subcommand Organization**
-   - `wt project init` makes sense
-   - But `wt setup` is top-level (inconsistent?)
-   - Should utility commands be grouped? (`wt util env-copy`?)
+### Typical Development Flow
+```bash
+$ wt new feature-auth    # Smart creation (branch + worktree + switch)
+# → "Created branch 'feature-auth' and switched to worktree"
 
-4. **Discovery Issues**
-   - Project commands only visible when in that project
-   - No `wt help <command>` for detailed help
-   - No command completion hints
+# ... work on feature ...
 
-## Proposed Improvements
+$ wt go mai             # Fuzzy match back to main
+# → "Switched to worktree 'main'"
 
-### High-Impact, Low-Effort
-1. **Add aliases:**
-   ```bash
-   wt ls          # alias for list
-   wt switch      # alias for go
-   wt s           # shorter alias for switch/go
-   ```
+$ wt rm feat            # Fuzzy match removal
+# → "Removed worktree 'feature-auth'"
+```
 
-2. **Standardize naming:**
-   ```bash
-   wt env copy    # instead of env-copy
-   wt env sync    # future: sync all .env files
-   ```
+### Quick Navigation Examples
+```bash
+$ wt 0                  # Instant switch to first worktree
+$ wt 1                  # Instant switch to second worktree
+$ wt go bug             # Auto-matches to 'bugfix-123'
+$ wt s dev              # Short alias, matches 'development'
+```
 
-3. **Add `-b` flag to add:**
-   ```bash
-   wt add -b new-feature origin/main  # create from base
-   ```
+### Error Handling Examples
+```bash
+$ wt go xyz
+# → "branch 'xyz' not found. Did you mean:
+#     1. main
+#     2. fix-xyz-bug
+#     3. feature-xyz"
 
-### Medium-Effort Improvements
-1. **Interactive mode for common tasks:**
-   ```bash
-   wt                    # no args shows menu
-   > 1. main             # numbered list for quick selection
-   > 2. feature-branch
-   > 3. bugfix-123
-   ```
+$ wt go te
+# → Shows interactive picker: [test-branch, test-feature, temp-fix]
+```
 
-2. **Better discovery:**
-   ```bash
-   wt commands           # list ALL available commands
-   wt help go           # detailed help for specific command
-   ```
+## Remaining Enhancement Opportunities
 
-3. **Smart suggestions:**
-   ```bash
-   $ wt go feat
-   Did you mean 'feature-branch'? [Y/n]
-   ```
+The only remaining ergonomic improvement area is **environment management**:
 
-### Usage Patterns to Optimize For
-
-1. **Most Common Flow:**
-   ```bash
-   wt new feature-x     # Start new feature
-   # ... work ...
-   wt go main          # Back to main
-   wt rm feature-x     # Cleanup
-   ```
-
-2. **Quick Switching:**
-   ```bash
-   wt go 0             # By index (fastest)
-   wt go feat<TAB>     # With completion
-   wt s                # Even shorter
-   ```
-
-3. **Project Navigation:**
-   ```bash
-   wt api              # Project shortcut
-   wt docs             # Another shortcut
-   ```
-
-## Command Length Analysis
-
-| Command | Keystrokes | Could Be |
-|---------|------------|----------|
-| wt list | 7 | wt ls (5) |
-| wt go 0 | 7 | wt 0 (4)? |
-| wt add branch | 13 | - |
-| wt new branch | 13 | - |
-| wt env-copy br | 14 | wt env cp br (12) |
-
-## Comparison with Similar Tools
-
-### git worktree
-- Verbose: `git worktree add ../project-branch branch`
-- Our win: `wt add branch` (automatic path management)
-
-### tmux/screen
-- Pattern: short commands with subcommands
-- We follow this well
-
-### Modern CLIs (gh, cargo, etc.)
-- Use subcommands extensively
-- Have good help systems
-- We could improve here
-
-## Recommendations
-
-### Immediate (No Breaking Changes)
-1. Add `wt ls` alias
-2. Add `wt switch` and `wt s` aliases
-3. Implement `wt help <cmd>`
-4. Add shell completions
-
-### Future Considerations
-1. Restructure into command groups:
-   ```
-   wt work new/add/rm/list    # worktree management
-   wt go/switch/s             # navigation
-   wt env copy/sync           # environment management
-   wt project init/add        # project management
-   ```
-
-2. Interactive picker for branch selection
-3. Fuzzy matching for branch names
-4. Integration with fzf/skim for selection
+**Current**: `wt env-copy feature --recursive`
+**Future**: `wt env sync feature` (unified subcommand structure)
 
 ## Summary
 
-The CLI is already quite ergonomic with good defaults and short commands. Main improvements would be:
-- Adding a few aliases for muscle memory from other tools
-- Better command discovery and help
-- Shell completions
-- Keeping the core simplicity while adding power-user features
+**Mission Accomplished**: The CLI has achieved excellent ergonomics through intelligent design. Users can express intent (`wt go mai`, `wt new feature`) and the tool handles implementation details automatically. The "Do What I Mean" philosophy has been successfully implemented throughout the interface.

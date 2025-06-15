@@ -9,6 +9,159 @@ This document tracks work completed during each development session to enable se
 
 ---
 
+## 2025-06-17 - CLAUDE.md Enhancement with Session Learnings
+
+### Context
+Following the successful completion of environment management enhancement and v0.9.0 release, reviewed the session to identify key learnings and patterns that should be documented in CLAUDE.md for future development sessions.
+
+### Work Completed
+
+#### 1. **Enhanced CLAUDE.md Documentation**
+- Added **Environment Management Architecture Pattern** section documenting the `wt env` subcommand design
+- Added **Pre-commit Hook Management** section with conflict resolution workflows
+- Added **Release Workflow Enhancement** section with complete CI/release monitoring process
+- Added **Universal Help System Implementation** section with integration patterns and standards
+- Added **Session Continuation Best Practices** emphasizing SESSION_LOG.md as critical first step
+- Added **Command Evolution Patterns** documenting progressive enhancement strategies
+- Added **Claude Code Integration** section with custom command ideas for development workflow
+- Added **Future wt Command Ideas** section with comprehensive command roadmap
+
+#### 2. **Architectural Pattern Documentation**
+- Documented the evolution from `env-copy` to unified `wt env` subcommand system
+- Established when to use unified subcommand patterns vs single-purpose commands
+- Created template for future command design decisions
+
+#### 3. **Operational Workflow Documentation**
+- Documented complete push → CI watch → release creation workflow using `gh run watch`
+- Added pre-commit hook conflict resolution patterns (stage fixes → amend commit)
+- Established semantic versioning decision trees for feature releases
+
+### Key Decisions
+- **Comprehensive Documentation**: All major patterns discovered during development should be captured
+- **Session Continuity**: SESSION_LOG.md reading is now explicitly marked as essential first step
+- **Progressive Enhancement**: Established backward compatibility as core principle for command evolution
+- **Help System Standards**: Universal help integration is now documented architectural requirement
+
+### Session Reflection: Claude Code & wt Command Analysis
+
+#### Claude Code Custom Commands
+Identified repetitive patterns that would benefit from custom commands:
+
+**Release Management**: `/release-workflow`, `/version-bump`, `/ci-watch`
+**Session Continuity**: `/session-start`, `/session-end`, `/context-recovery`
+**Pre-commit Hooks**: `/fix-hooks`, `/commit-with-hooks`
+**Documentation**: `/update-docs`, `/help-integration`
+
+These would eliminate manual repetition and ensure consistency across development sessions.
+
+#### wt Command Ideas
+Reviewed potential additions based on current codebase:
+
+**High-Value Candidates:**
+- `wt status` - Cross-worktree status overview
+- `wt clean` - Remove worktrees for merged branches
+- `wt sync` - Pull latest across all worktrees
+
+**Medium-Value Candidates:**
+- `wt info [branch]` - Detailed worktree information
+- `wt compare <branch1> <branch2>` - Cross-worktree comparison
+- `wt config` - Interactive project configuration
+
+**Implementation Priority**: Focus on `wt status` as next major feature (most commonly needed workflow command)
+
+### Next Steps for Future Sessions
+1. Consider implementing `wt status` command for comprehensive worktree overview
+2. Evaluate adding cleanup commands (`wt clean`, `wt prune`) for maintenance workflows
+3. Monitor user feedback on v0.9.0 environment management features
+4. Consider adding more sophisticated project configuration management
+
+### Documentation Impact
+CLAUDE.md now serves as comprehensive development guide covering:
+- Architectural patterns and when to use them
+- Operational workflows for CI/release management
+- Session continuity best practices
+- Command evolution strategies
+- Help system implementation requirements
+
+This enhancement ensures future development sessions have clear guidance for maintaining code quality and consistency.
+
+---
+
+## 2025-06-16 - Universal Help System Implementation
+
+### Context
+After completing Issue #4 (Interactive Fuzzy Finding Support), implemented a comprehensive help system to address the CLI ergonomics gap where commands like `wt go --help` would try to switch to a "--help" branch instead of showing help.
+
+### Work Completed
+
+#### 1. **Help System Infrastructure**
+- Created `internal/help/help.go` with comprehensive help system:
+  - `CommandHelp` struct for structured help information
+  - `ShowCommandHelp()` function with professional formatting (NAME, USAGE, OPTIONS, EXAMPLES, SEE ALSO)
+  - `HasHelpFlag()` function for consistent help flag detection
+  - Complete help content for all 10 commands with detailed descriptions, examples, and cross-references
+
+#### 2. **Universal Help Integration**
+- Updated `cmd/wt/main.go` to integrate help system into all commands:
+  - Added help flag constants (`--help`, `-h`) to eliminate code duplication
+  - Modified all command handlers to check for help flags first
+  - Implemented proper flag filtering to remove help flags from argument parsing
+  - Maintained backwards compatibility with existing command behavior
+
+#### 3. **Test Compatibility Updates**
+- Updated `cmd/wt/setup_completion_test.go` for new help behavior:
+  - Changed test expectations from expecting `setup --help` to fail to expecting success
+  - Updated validation to check help content format instead of error messages
+  - Ensured test compatibility with new help system
+
+### Technical Implementation Details
+
+**Help System Architecture:**
+- Central help content management in `internal/help/help.go`
+- Consistent formatting with sections: NAME, USAGE, OPTIONS, EXAMPLES, SEE ALSO
+- Support for command aliases in help content
+- Flag descriptions with examples
+- Cross-references between related commands
+
+**Integration Pattern:**
+```go
+// Applied to all command handlers
+if help.HasHelpFlag(args, "commandName") {
+    return
+}
+```
+
+**Help Content Features:**
+- Detailed usage patterns for each command
+- Comprehensive flag documentation with examples
+- Real-world usage examples for each command
+- "SEE ALSO" cross-references for related commands
+- Support for command aliases (ls, switch, s)
+
+### Verification
+- ✅ All commands now support `--help` and `-h` flags
+- ✅ Help content shows detailed, professional documentation
+- ✅ `make test-ci` passes with updated test expectations
+- ✅ Pre-commit hooks pass (formatting, linting, conventional commits)
+
+### Key Decisions
+- Used centralized help system rather than per-command help strings
+- Implemented help flag detection before argument parsing to avoid conflicts
+- Created comprehensive help content for all commands, not just core ones
+- Maintained consistent formatting across all help output
+
+### Next Steps for Future Sessions
+1. Update CLI_ERGONOMICS_ROADMAP.md to reflect completed features
+2. Consider enhancing environment management (`wt env` subcommands)
+3. Add command discovery features (`wt commands`, `wt help <command>`)
+
+### Commits Made
+- `1b1a4d1` - feat: add comprehensive help system infrastructure
+- `55c7d4e` - feat: integrate help system into all commands
+- `fc9b786` - test: update setup completion test for help system integration
+
+---
+
 ## 2025-06-14 Part 2 - Shell Completion Critical Fixes & Learnings
 
 ### Context

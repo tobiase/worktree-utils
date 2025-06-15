@@ -11,7 +11,10 @@ This is a personal utility project. While public for ease of access, I'm not acc
 
 ## Features
 
-- 🚀 **Quick Navigation** - Switch between worktrees instantly with `wt go`
+- 🚀 **Quick Navigation** - Switch between worktrees instantly with `wt go` or `wt 0`, `wt 1`
+- 🧠 **Smart Commands** - `wt new feature` works regardless of branch state (new/existing/has worktree)
+- 🔍 **Fuzzy Matching** - `wt go mai` automatically switches to `main`, with smart suggestions
+- 📖 **Universal Help** - All commands support `--help`/`-h` with detailed documentation
 - 📁 **Project-Specific Commands** - Define custom navigation shortcuts per project
 - 🔄 **Environment Sync** - Copy `.env` files between worktrees
 - 🛠️ **Self-Installing** - Single binary that sets itself up
@@ -45,20 +48,55 @@ make build
 
 ```bash
 # List all worktrees
-wt list
+wt list                    # or: wt ls
 
-# Create a new worktree
-wt add feature-branch
+# Smart worktree creation (handles any branch state)
+wt new feature-branch      # Creates branch + worktree OR switches if exists
+wt new feature --base main # Create from specific base branch
 
-# Create and switch to a new worktree
-wt new feature-branch --base main
+# Quick navigation with fuzzy matching
+wt go 1                    # Switch by index
+wt go feature-branch       # Switch by exact name
+wt go feat                 # Fuzzy match to 'feature-branch'
+wt go mai                  # Auto-switches to 'main'
+wt 0                       # Direct shortcut to first worktree
+wt 1                       # Direct shortcut to second worktree
 
-# Switch to a worktree (by index or name)
-wt go 1
-wt go feature-branch
+# Smart removal with suggestions
+wt rm feature-branch       # Remove by exact name
+wt rm feat                 # Fuzzy match for removal
 
-# Remove a worktree
-wt rm feature-branch
+# Get help for any command
+wt go --help               # Detailed help for 'go' command
+wt new -h                  # Short help flag also works
+```
+
+### Intelligent Behavior
+
+`wt` uses "Do What I Mean" design - commands understand your intent and provide helpful guidance:
+
+```bash
+# Fuzzy matching with auto-resolution
+$ wt go mai
+# → Automatically switches to 'main' (unambiguous match)
+
+# Smart suggestions for ambiguous input
+$ wt go te
+# → Shows interactive picker: [test-branch, test-feature, temp-fix]
+
+# Helpful error messages
+$ wt go xyz
+# → "branch 'xyz' not found. Did you mean:
+#     1. main
+#     2. fix-xyz-bug
+#     3. feature-xyz"
+
+# Smart worktree creation
+$ wt new existing-branch
+# → "Switched to existing worktree 'existing-branch'" (no error!)
+
+$ wt new new-branch
+# → Creates branch + worktree + switches (handles everything)
 ```
 
 ### Utility Commands

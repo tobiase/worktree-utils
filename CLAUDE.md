@@ -415,3 +415,299 @@ When creating commits, follow these guidelines:
    ```
 
 5. **Reference issues when applicable**: `fix: correct worktree path handling (#42)`
+
+## Environment Management Architecture Pattern
+
+The `wt env` command demonstrates the preferred pattern for unified subcommand systems:
+
+### Evolution from Single-Purpose to Unified Commands
+```bash
+# Old approach: Single-purpose commands
+wt env-copy feature --recursive
+
+# New approach: Unified subcommand system
+wt env sync feature --recursive
+wt env diff feature
+wt env list
+wt env sync --all
+```
+
+### Implementation Pattern
+1. **Subcommand Routing**: Main command dispatcher routes to subcommand handlers
+2. **Shared Functionality**: Common logic (fuzzy matching, validation) shared across subcommands
+3. **Progressive Enhancement**: Add new subcommands without breaking existing usage
+4. **Help Integration**: Each subcommand gets comprehensive help documentation
+
+### When to Use This Pattern
+- Multiple related operations on the same data type (env files, branches, etc.)
+- Commands that share common flags and validation logic
+- Operations that benefit from unified help and completion
+
+## Pre-commit Hook Management
+
+### Handling Hook Conflicts During Commits
+When pre-commit hooks modify files during commit:
+
+```bash
+# 1. Create commit normally
+git commit -m "feat: implement feature"
+
+# 2. If hooks modify files, they become unstaged changes
+git status  # Shows modified files
+
+# 3. Stage the hook fixes and amend the commit
+git add .
+git commit --amend --no-edit
+```
+
+### Common Hook Issues
+- **Trailing whitespace**: Hooks automatically fix, creating unstaged changes
+- **Import formatting**: Go hooks may reorganize imports
+- **Line endings**: Hooks may normalize line endings
+
+### Best Practice
+Always run `git status` after a commit to check if hooks created additional changes that need to be staged and amended.
+
+## Release Workflow Enhancement
+
+### Complete Release Process
+```bash
+# 1. Push changes and get run ID
+git push origin main
+gh run list --limit 1  # Get the run ID
+
+# 2. Monitor CI completion
+gh run watch <run-id>
+
+# 3. Create and push version tag
+git tag v0.x.0
+git push origin v0.x.0
+
+# 4. Monitor release workflow
+gh run list --limit 1  # Get release run ID
+gh run watch <release-run-id>
+
+# 5. Verify release creation
+gh release view v0.x.0
+```
+
+### Semantic Versioning Decision Tree
+- **PATCH (0.0.X)**: Bug fixes, docs, tests, refactoring
+- **MINOR (0.X.0)**: New commands, new flags, new features
+- **MAJOR (X.0.0)**: Breaking CLI changes, removed commands
+
+### Monitoring Best Practices
+- Always watch CI runs to catch failures early
+- Verify release assets are generated correctly
+- Check release notes include all intended commits
+
+## Universal Help System Implementation
+
+### Help Integration Pattern
+Every command handler should start with:
+```go
+if help.HasHelpFlag(args, "commandName") {
+    return
+}
+```
+
+### Help Content Standards
+1. **NAME**: Command and brief description
+2. **USAGE**: Syntax with optional/required parameters
+3. **ALIASES**: Alternative command names
+4. **OPTIONS**: Detailed flag descriptions with examples
+5. **EXAMPLES**: Real-world usage scenarios
+6. **SEE ALSO**: Related commands
+
+### Implementation Requirements
+- All commands MUST support `--help` and `-h`
+- Help content MUST include practical examples
+- Cross-references MUST link related commands
+- Flag examples MUST show realistic usage
+
+## Session Continuation Best Practices
+
+### Essential Pre-Work Checklist
+1. **ALWAYS read `docs/SESSION_LOG.md` first** - Contains recent work and context
+2. **Check git status** - Understand current state before starting
+3. **Review recent commits** - Understand what was accomplished previously
+4. **Read any TODO lists** - Check for pending tasks
+
+### Handling Interrupted Work
+- Pre-commit hook failures often leave work in progress
+- Always check for staged vs unstaged changes
+- Use `git status` frequently to understand current state
+- Complete interrupted commits before starting new work
+
+### Context Recovery Pattern
+```bash
+# 1. Check current state
+git status
+git log --oneline -5
+
+# 2. Read session history
+cat docs/SESSION_LOG.md | head -50
+
+# 3. Check for TODOs or pending work
+rg "TODO|FIXME|XXX" --type go
+```
+
+## Command Evolution Patterns
+
+### Progressive Enhancement Strategy
+1. **Maintain Backward Compatibility**: Old commands continue working
+2. **Add New Unified Interface**: Implement improved command structure
+3. **Update Documentation**: Show both old and new patterns
+4. **Gradual Migration**: Users can adopt new patterns over time
+
+### Example: env-copy → wt env Evolution
+```bash
+# Phase 1: Both commands work
+wt env-copy feature    # Old command (still works)
+wt env sync feature    # New unified interface
+
+# Phase 2: Deprecation warnings (future)
+wt env-copy feature    # Shows: "Consider using 'wt env sync' instead"
+
+# Phase 3: Legacy support (long-term)
+# Keep old command for backward compatibility
+```
+
+### When NOT to Break Compatibility
+- Established user workflows depend on current syntax
+- Scripts and automation use existing commands
+- No compelling ergonomic improvement justifies breaking changes
+
+### Safe Evolution Patterns
+- Add new subcommands alongside existing commands
+- Extend existing commands with new flags
+- Provide multiple interfaces to the same functionality
+- Use deprecation warnings before removal
+
+## Claude Code Integration
+
+### Implemented Custom Commands
+
+Based on repetitive patterns in development sessions, these Claude Code custom commands have been implemented as project-level slash commands in `.claude/commands/`:
+
+#### Available Commands
+
+**Session Management:**
+- `/project:session-start` - Comprehensive context recovery from SESSION_LOG.md, git status, and pending work
+- `/project:session-end` - Document completed work and update session logs
+
+**Release & CI:**
+- `/project:release-workflow` - Execute complete push → CI → tag → release → verify workflow
+- `/project:test-ci` - Run comprehensive testing (`make test-ci`, linting, build verification)
+
+**Development Workflow:**
+- `/project:fix-hooks` - Handle pre-commit hook modifications with stage → amend pattern
+- `/project:help-integration` - Add help system integration to new commands
+- `/project:update-docs` - Synchronize documentation after feature implementation
+
+#### Usage Examples
+
+```bash
+# Start a new development session
+/project:session-start
+
+# Run comprehensive testing before release
+/project:test-ci
+
+# Execute full release workflow
+/project:release-workflow
+
+# Fix pre-commit hook conflicts
+/project:fix-hooks
+
+# End session and document work
+/project:session-end
+```
+
+These commands eliminate repetitive manual steps and ensure consistent patterns across development sessions. They are implemented as simple Markdown files containing detailed prompts for common workflows.
+
+## Future wt Command Ideas
+
+### High-Priority Commands (Next Implementation Phase)
+
+#### Status and Information Commands
+```bash
+wt status                  # Cross-worktree status overview
+  --detail                 # Show uncommitted changes, ahead/behind status
+  --since <date>           # Activity since date
+
+wt info [branch]           # Detailed worktree information
+  --files                  # File count and sizes
+  --activity               # Recent commits and changes
+
+wt activity                # Recent activity across all worktrees
+  --author <name>          # Filter by author
+  --since <date>           # Time-based filtering
+```
+
+#### Maintenance and Cleanup Commands
+```bash
+wt clean                   # Remove worktrees for merged/deleted branches
+  --merged                 # Only merged branches
+  --dry-run                # Show what would be removed
+  --force                  # Skip confirmation
+
+wt sync                    # Pull latest changes across all worktrees
+  --parallel               # Sync in parallel
+  --branch <name>          # Sync specific worktree
+
+wt prune                   # Clean up stale worktree references
+  --broken                 # Remove broken symlinks
+  --orphaned               # Remove orphaned worktree dirs
+```
+
+### Medium-Priority Commands (Future Enhancement)
+
+#### Advanced Workflow Commands
+```bash
+wt compare <branch1> <branch2>  # Compare files/commits between worktrees
+  --files                       # File-level differences
+  --commits                     # Commit differences
+
+wt backup [branch]              # Create backup/snapshot of worktree state
+  --name <backup-name>          # Named backup
+  --all                         # Backup all worktrees
+
+wt restore <backup>             # Restore from backup
+  --list                        # List available backups
+
+wt config                       # Interactive project configuration
+  --edit                        # Edit current project config
+  --global                      # Global wt settings
+```
+
+#### Integration and Automation Commands
+```bash
+wt watch [branch]               # Watch for changes and auto-sync
+  --command <cmd>               # Run command on changes
+
+wt template                     # Project template management
+  --create <name>               # Create template from current setup
+  --apply <template>            # Apply template to new project
+
+wt metrics                      # Worktree usage analytics
+  --usage                       # Show usage patterns
+  --performance                 # Performance metrics
+```
+
+### Implementation Guidelines for Future Commands
+
+#### Command Design Principles
+1. **Follow Established Patterns**: Use fuzzy matching, help integration, smart defaults
+2. **Unified Subcommands**: Group related operations (like `wt env`)
+3. **Progressive Enhancement**: Add new functionality without breaking existing workflows
+4. **Cross-Platform Compatibility**: Ensure commands work on all supported platforms
+
+#### Priority Ranking Criteria
+- **User Impact**: How many daily workflows does this improve?
+- **Complexity**: Implementation effort vs. benefit ratio
+- **Integration**: How well does it fit with existing command structure?
+- **Maintenance**: Long-term support and testing requirements
+
+#### Next Implementation Target
+**`wt status`** should be the next major feature - it addresses the most common need (understanding current state across all worktrees) and provides high value with moderate implementation complexity.
