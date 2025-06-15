@@ -150,33 +150,37 @@ func TestSetupCompletionUsage(t *testing.T) {
 	binaryPath, cleanup := createSetupTestBinary(t)
 	defer cleanup()
 
-	// Test that unknown setup option shows usage
+	// Test that setup --help shows help information
 	cmd := exec.Command(binaryPath, "setup", "--help")
 	output, err := cmd.CombinedOutput()
 
-	// Command should fail with unknown option
-	if err == nil {
-		t.Error("Expected setup --help to fail with unknown option error")
+	// Command should succeed and show help
+	if err != nil {
+		t.Errorf("Expected setup --help to succeed, got error: %v", err)
 	}
 
 	outputStr := string(output)
 
-	// Check usage information is shown
-	expectedUsageParts := []string{
-		"Usage: wt setup [options]",
+	// Check help information is shown
+	expectedHelpParts := []string{
+		"NAME",
+		"wt setup - Install wt with shell integration and completion",
+		"USAGE",
+		"wt setup [options]",
+		"OPTIONS",
 		"--completion <shell>",
 		"--no-completion",
 		"--check",
 		"--uninstall",
-		"Examples:",
-		"wt setup                      # Install with auto-detected completion",
+		"EXAMPLES",
+		"wt setup                     # Install with auto-detected completion",
 		"wt setup --completion bash",
 		"wt setup --no-completion",
 	}
 
-	for _, expected := range expectedUsageParts {
+	for _, expected := range expectedHelpParts {
 		if !strings.Contains(outputStr, expected) {
-			t.Errorf("Setup usage missing expected part: %s", expected)
+			t.Errorf("Setup help missing expected part: %s", expected)
 		}
 	}
 }
