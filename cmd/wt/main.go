@@ -9,6 +9,7 @@ import (
 
 	"github.com/tobiase/worktree-utils/internal/completion"
 	"github.com/tobiase/worktree-utils/internal/config"
+	"github.com/tobiase/worktree-utils/internal/help"
 	"github.com/tobiase/worktree-utils/internal/interactive"
 	"github.com/tobiase/worktree-utils/internal/setup"
 	"github.com/tobiase/worktree-utils/internal/update"
@@ -26,6 +27,8 @@ var (
 const (
 	fuzzyFlag      = "--fuzzy"
 	fuzzyFlagShort = "-f"
+	helpFlag       = "--help"
+	helpFlagShort  = "-h"
 )
 
 // Command constants
@@ -94,7 +97,7 @@ func main() {
 	}
 
 	// Handle help flags
-	if len(os.Args) == 2 && (os.Args[1] == "--help" || os.Args[1] == "-h") {
+	if len(os.Args) == 2 && (os.Args[1] == helpFlag || os.Args[1] == helpFlagShort) {
 		showUsage()
 		return
 	}
@@ -180,7 +183,7 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 	case shellInitCmd:
 		fmt.Print(shellWrapper)
 	case "list":
-		handleListCommand()
+		handleListCommand(args)
 	case "rm":
 		handleRemoveCommand(args)
 	case "go":
@@ -194,7 +197,7 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 	case "completion":
 		handleCompletionCommand(args, configMgr)
 	case "version":
-		handleVersionCommand()
+		handleVersionCommand(args)
 	case "update":
 		handleUpdateCommand(args)
 	case "help":
@@ -210,7 +213,11 @@ func isNumericCommand(cmd string) bool {
 	return err == nil
 }
 
-func handleListCommand() {
+func handleListCommand(args []string) {
+	if help.HasHelpFlag(args, "list") {
+		return
+	}
+
 	if err := worktree.List(); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 		os.Exit(1)
@@ -218,6 +225,10 @@ func handleListCommand() {
 }
 
 func handleRemoveCommand(args []string) {
+	if help.HasHelpFlag(args, "rm") {
+		return
+	}
+
 	// Parse flags
 	var useFuzzy bool
 	var target string
@@ -225,6 +236,9 @@ func handleRemoveCommand(args []string) {
 	for _, arg := range args {
 		if arg == fuzzyFlag || arg == fuzzyFlagShort {
 			useFuzzy = true
+		} else if arg == helpFlag || arg == helpFlagShort {
+			// Skip help flags - they're handled separately
+			continue
 		} else {
 			// First non-flag argument is the target
 			target = arg
@@ -257,6 +271,10 @@ func handleRemoveCommand(args []string) {
 }
 
 func handleGoCommand(args []string) {
+	if help.HasHelpFlag(args, "go") {
+		return
+	}
+
 	useFuzzy, target := parseGoCommandArgs(args)
 	path, err := resolveGoTarget(target, useFuzzy)
 
@@ -272,6 +290,9 @@ func parseGoCommandArgs(args []string) (useFuzzy bool, target string) {
 	for _, arg := range args {
 		if arg == fuzzyFlag || arg == fuzzyFlagShort {
 			useFuzzy = true
+		} else if arg == helpFlag || arg == helpFlagShort {
+			// Skip help flags - they're handled separately
+			continue
 		} else {
 			// First non-flag argument is the target
 			target = arg
@@ -339,6 +360,10 @@ func handleTargetProvided(target string) (string, error) {
 }
 
 func handleNewCommand(args []string, configMgr *config.Manager) {
+	if help.HasHelpFlag(args, "new") {
+		return
+	}
+
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Usage: wt new <branch> [--base <branch>]\n")
 		os.Exit(1)
@@ -356,10 +381,22 @@ func handleNewCommand(args []string, configMgr *config.Manager) {
 }
 
 func parseNewCommandArgs(args []string) (branch, baseBranch string) {
-	branch = args[0]
-	for i := 1; i < len(args); i++ {
-		if args[i] == "--base" && i+1 < len(args) {
-			baseBranch = args[i+1]
+	// Filter out help flags and find the first non-help argument as branch
+	var filteredArgs []string
+	for _, arg := range args {
+		if arg != helpFlag && arg != helpFlagShort {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+
+	if len(filteredArgs) == 0 {
+		return "", ""
+	}
+
+	branch = filteredArgs[0]
+	for i := 1; i < len(filteredArgs); i++ {
+		if filteredArgs[i] == "--base" && i+1 < len(filteredArgs) {
+			baseBranch = filteredArgs[i+1]
 			i++
 		}
 	}
@@ -367,6 +404,10 @@ func parseNewCommandArgs(args []string) (branch, baseBranch string) {
 }
 
 func handleEnvCopyCommand(args []string) {
+	if help.HasHelpFlag(args, "env-copy") {
+		return
+	}
+
 	// Parse flags
 	var useFuzzy bool
 	var target string
@@ -377,6 +418,9 @@ func handleEnvCopyCommand(args []string) {
 			useFuzzy = true
 		} else if arg == "--recursive" {
 			recursive = true
+		} else if arg == helpFlag || arg == helpFlagShort {
+			// Skip help flags - they're handled separately
+			continue
 		} else {
 			// First non-flag argument is the target
 			target = arg
@@ -394,7 +438,11 @@ func handleEnvCopyCommand(args []string) {
 	}
 }
 
-func handleVersionCommand() {
+func handleVersionCommand(args []string) {
+	if help.HasHelpFlag(args, "version") {
+		return
+	}
+
 	fmt.Printf("wt version %s\n", version)
 	if version != "dev" {
 		fmt.Printf("  commit: %s\n", commit)
@@ -507,6 +555,10 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 }
 
 func handleProjectCommand(args []string, configMgr *config.Manager) {
+	if help.HasHelpFlag(args, "project") {
+		return
+	}
+
 	if len(args) == 0 {
 		fmt.Fprintf(os.Stderr, "Usage: wt project [init|add|list]\n")
 		os.Exit(1)
@@ -575,6 +627,10 @@ const (
 )
 
 func handleSetupCommand(args []string) {
+	if help.HasHelpFlag(args, "setup") {
+		return
+	}
+
 	var completionOpts setup.CompletionOptions
 	var installMode bool
 
@@ -796,6 +852,10 @@ func printCommandCategories(navCommands, venvCommands []string, projectName stri
 }
 
 func handleCompletionCommand(args []string, configMgr *config.Manager) {
+	if help.HasHelpFlag(args, "completion") {
+		return
+	}
+
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Usage: wt completion <bash|zsh>\n")
 		fmt.Fprintf(os.Stderr, "\nGenerate shell completion scripts for wt.\n\n")
@@ -823,6 +883,10 @@ func handleCompletionCommand(args []string, configMgr *config.Manager) {
 }
 
 func handleUpdateCommand(args []string) {
+	if help.HasHelpFlag(args, "update") {
+		return
+	}
+
 	// Parse flags
 	checkOnly := false
 	force := false
@@ -833,6 +897,9 @@ func handleUpdateCommand(args []string) {
 			checkOnly = true
 		case "--force":
 			force = true
+		case helpFlag, helpFlagShort:
+			// Skip help flags - they're handled separately
+			continue
 		}
 	}
 
