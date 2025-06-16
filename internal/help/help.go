@@ -17,6 +17,7 @@ type CommandHelp struct {
 	Name        string
 	Usage       string
 	Description string
+	Subcommands []string
 	Examples    []string
 	Flags       []FlagHelp
 	Aliases     []string
@@ -48,6 +49,14 @@ func ShowCommandHelp(commandName string) {
 	if len(help.Aliases) > 0 {
 		fmt.Printf("ALIASES\n")
 		fmt.Printf("    %s\n\n", strings.Join(help.Aliases, ", "))
+	}
+
+	if len(help.Subcommands) > 0 {
+		fmt.Printf("SUBCOMMANDS\n")
+		for _, subcommand := range help.Subcommands {
+			fmt.Printf("    %s\n", subcommand)
+		}
+		fmt.Printf("\n")
 	}
 
 	if len(help.Flags) > 0 {
@@ -237,6 +246,11 @@ var commandHelpMap = map[string]CommandHelp{
 		Name:        "env",
 		Usage:       "wt env <subcommand> [options]",
 		Description: "Unified environment file management across worktrees",
+		Subcommands: []string{
+			"sync     Copy .env files to target worktree(s)",
+			"diff     Show differences between .env files",
+			"list     List all .env files across worktrees",
+		},
 		Examples: []string{
 			"wt env sync feature          # Copy .env files to feature worktree",
 			"wt env sync --all            # Sync .env to all other worktrees",
@@ -268,10 +282,16 @@ var commandHelpMap = map[string]CommandHelp{
 		Name:        "project",
 		Usage:       "wt project <subcommand> [options]",
 		Description: "Manage project configuration for custom commands and settings",
+		Subcommands: []string{
+			"init     Initialize project configuration",
+			"setup    Manage worktree setup automation",
+		},
 		Examples: []string{
 			"wt project init myproject    # Initialize project configuration",
+			"wt project setup run         # Run setup automation for current worktree",
+			"wt project setup show        # Show configured setup steps",
 		},
-		SeeAlso: []string{"wt setup"},
+		SeeAlso: []string{"wt new"},
 	},
 	"setup": {
 		Name:        "setup",

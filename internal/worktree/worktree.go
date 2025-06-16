@@ -129,7 +129,115 @@ func Add(branch string, cfg *config.Manager) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	// Run setup automation if configured
+	if cfg != nil && cfg.GetCurrentProject() != nil && cfg.GetCurrentProject().Setup != nil {
+		fmt.Printf("Running setup automation for new worktree...\n")
+		if err := runWorktreeSetup(repo, worktreePath, cfg.GetCurrentProject().Setup); err != nil {
+			fmt.Printf("Warning: Setup automation failed: %v\n", err)
+			// Don't fail the entire operation, just warn
+		}
+	}
+
+	return nil
+}
+
+// runWorktreeSetup executes setup automation for a newly created worktree
+func runWorktreeSetup(repoRoot, worktreePath string, setup *config.SetupConfig) error {
+	// Create directories
+	for _, dir := range setup.CreateDirectories {
+		dirPath := filepath.Join(worktreePath, dir)
+		if err := os.MkdirAll(dirPath, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %v", dir, err)
+		}
+		fmt.Printf("Created directory: %s\n", dir)
+	}
+
+	// Copy files
+	for _, copyFile := range setup.CopyFiles {
+		sourcePath := filepath.Join(repoRoot, copyFile.Source)
+		targetPath := filepath.Join(worktreePath, copyFile.Target)
+
+		// Ensure target directory exists
+		targetDir := filepath.Dir(targetPath)
+		if err := os.MkdirAll(targetDir, 0755); err != nil {
+			return fmt.Errorf("failed to create target directory for %s: %v", copyFile.Target, err)
+		}
+
+		// Check if source file exists
+		if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+			fmt.Printf("Warning: Source file %s not found, skipping\n", copyFile.Source)
+			continue
+		}
+
+		// Copy the file
+		if err := copyFileForSetup(sourcePath, targetPath); err != nil {
+			return fmt.Errorf("failed to copy %s to %s: %v", copyFile.Source, copyFile.Target, err)
+		}
+		fmt.Printf("Copied: %s → %s\n", copyFile.Source, copyFile.Target)
+	}
+
+	// Run commands
+	for _, cmdConfig := range setup.Commands {
+		cmdDir := filepath.Join(worktreePath, cmdConfig.Directory)
+
+		// Ensure command directory exists
+		if _, err := os.Stat(cmdDir); os.IsNotExist(err) {
+			fmt.Printf("Warning: Command directory %s not found, skipping command: %s\n", cmdConfig.Directory, cmdConfig.Command)
+			continue
+		}
+
+		fmt.Printf("Running: %s (in %s)\n", cmdConfig.Command, cmdConfig.Directory)
+
+		// Split command into parts (simple splitting - could be enhanced for complex commands)
+		parts := strings.Fields(cmdConfig.Command)
+		if len(parts) == 0 {
+			continue
+		}
+
+		cmd := exec.Command(parts[0], parts[1:]...)
+		cmd.Dir = cmdDir
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("command failed in %s: %s (%v)", cmdConfig.Directory, cmdConfig.Command, err)
+		}
+	}
+
+	return nil
+}
+
+// copyFileForSetup copies a single file for setup automation
+func copyFileForSetup(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	// Get file info for permissions
+	sourceInfo, err := sourceFile.Stat()
+	if err != nil {
+		return err
+	}
+
+	// Read file content
+	content, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+
+	// Write to destination with same permissions
+	return os.WriteFile(dst, content, sourceInfo.Mode())
+}
+
+// RunSetup executes setup automation for an existing worktree
+func RunSetup(repoRoot, worktreePath string, setup *config.SetupConfig) error {
+	return runWorktreeSetup(repoRoot, worktreePath, setup)
 }
 
 // Remove deletes a worktree by branch name or path

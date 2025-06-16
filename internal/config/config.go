@@ -23,6 +23,7 @@ type ProjectConfig struct {
 	Commands   map[string]NavigationCommand `yaml:"commands"`
 	Settings   ProjectSettings              `yaml:"settings"`
 	Virtualenv *VirtualenvConfig            `yaml:"virtualenv,omitempty"`
+	Setup      *SetupConfig                 `yaml:"setup,omitempty"`
 }
 
 // ProjectMatch defines how to match a project
@@ -41,6 +42,25 @@ type VirtualenvConfig struct {
 	Name         string `yaml:"name"`                    // Directory name (e.g., .venv, venv)
 	Python       string `yaml:"python,omitempty"`        // Python executable (defaults to python3)
 	AutoCommands bool   `yaml:"auto_commands,omitempty"` // Auto-add venv commands
+}
+
+// CopyFileConfig represents a file copy operation during worktree setup
+type CopyFileConfig struct {
+	Source string `yaml:"source"` // Source file path (relative to repo root)
+	Target string `yaml:"target"` // Target file path (relative to worktree root)
+}
+
+// SetupCommand represents a command to run during worktree setup
+type SetupCommand struct {
+	Directory string `yaml:"directory"` // Directory to run command in (relative to worktree root)
+	Command   string `yaml:"command"`   // Command to execute
+}
+
+// SetupConfig contains worktree setup automation configuration
+type SetupConfig struct {
+	CopyFiles         []CopyFileConfig `yaml:"copy_files,omitempty"`
+	Commands          []SetupCommand   `yaml:"commands,omitempty"`
+	CreateDirectories []string         `yaml:"create_directories,omitempty"`
 }
 
 // Config represents the global wt configuration

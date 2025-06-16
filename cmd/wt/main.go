@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/tobiase/worktree-utils/internal/completion"
 	"github.com/tobiase/worktree-utils/internal/config"
@@ -733,7 +734,8 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 	}
 
 	if len(args) == 0 {
-		fmt.Fprintf(os.Stderr, "Usage: wt project [init|add|list]\n")
+		fmt.Fprintf(os.Stderr, "Usage: wt project [init|setup]\n")
+		fmt.Fprintf(os.Stderr, "Use 'wt project --help' for detailed help\n")
 		os.Exit(1)
 	}
 
@@ -789,9 +791,137 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 		fmt.Printf("Project '%s' initialized at %s\n", projectName, cwd)
 		fmt.Printf("Config saved to: %s/projects/%s.yaml\n", configMgr.GetConfigDir(), projectName)
 
+	case "setup":
+		handleProjectSetupCommand(subargs, configMgr)
+
 	default:
 		fmt.Fprintf(os.Stderr, "wt: unknown project subcommand '%s'\n", subcmd)
+		fmt.Fprintf(os.Stderr, "Available subcommands: init, setup\n")
+		fmt.Fprintf(os.Stderr, "Use 'wt project --help' for detailed help\n")
 		os.Exit(1)
+	}
+}
+
+func handleProjectSetupCommand(args []string, configMgr *config.Manager) {
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "wt: project setup command requires a subcommand\n")
+		fmt.Fprintf(os.Stderr, "Available subcommands: run, show\n")
+		fmt.Fprintf(os.Stderr, "Use 'wt project --help' for detailed help\n")
+		os.Exit(1)
+	}
+
+	subcommand := args[0]
+	subargs := args[1:]
+
+	switch subcommand {
+	case "run":
+		handleProjectSetupRunCommand(subargs, configMgr)
+	case "show":
+		handleProjectSetupShowCommand(subargs, configMgr)
+	default:
+		fmt.Fprintf(os.Stderr, "wt: unknown project setup subcommand '%s'\n", subcommand)
+		fmt.Fprintf(os.Stderr, "Available subcommands: run, show\n")
+		fmt.Fprintf(os.Stderr, "Use 'wt project --help' for detailed help\n")
+		os.Exit(1)
+	}
+}
+
+func handleProjectSetupRunCommand(args []string, configMgr *config.Manager) {
+	// Get current project configuration
+	currentProject := configMgr.GetCurrentProject()
+	if currentProject == nil {
+		fmt.Fprintf(os.Stderr, "wt: no project configuration found for current directory\n")
+		fmt.Fprintf(os.Stderr, "Use 'wt project init <name>' to configure this project\n")
+		os.Exit(1)
+	}
+
+	if currentProject.Setup == nil {
+		fmt.Printf("No setup automation configured for project '%s'\n", currentProject.Name)
+		return
+	}
+
+	// Get repository root and current worktree path
+	repoRoot, err := worktree.GetRepoRoot()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wt: failed to get current directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Determine which worktree we're in
+	worktrees, err := worktree.GetWorktreeInfo()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		os.Exit(1)
+	}
+
+	var currentWorktreePath string
+	for _, wt := range worktrees {
+		if strings.HasPrefix(currentDir, wt.Path) {
+			currentWorktreePath = wt.Path
+			break
+		}
+	}
+
+	if currentWorktreePath == "" {
+		fmt.Fprintf(os.Stderr, "wt: not currently in a worktree\n")
+		os.Exit(1)
+	}
+
+	fmt.Printf("Running setup automation for project '%s'...\n", currentProject.Name)
+	if err := worktree.RunSetup(repoRoot, currentWorktreePath, currentProject.Setup); err != nil {
+		fmt.Fprintf(os.Stderr, "wt: setup failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Setup completed successfully!")
+}
+
+func handleProjectSetupShowCommand(args []string, configMgr *config.Manager) {
+	// Get current project configuration
+	currentProject := configMgr.GetCurrentProject()
+	if currentProject == nil {
+		fmt.Fprintf(os.Stderr, "wt: no project configuration found for current directory\n")
+		fmt.Fprintf(os.Stderr, "Use 'wt project init <name>' to configure this project\n")
+		os.Exit(1)
+	}
+
+	if currentProject.Setup == nil {
+		fmt.Printf("No setup automation configured for project '%s'\n", currentProject.Name)
+		fmt.Println("\nTo configure setup automation, edit your project config file:")
+		fmt.Printf("~/.config/wt/projects/%s.yaml\n", currentProject.Name)
+		return
+	}
+
+	fmt.Printf("Setup automation for project '%s':\n\n", currentProject.Name)
+
+	if len(currentProject.Setup.CreateDirectories) > 0 {
+		fmt.Println("Create directories:")
+		for _, dir := range currentProject.Setup.CreateDirectories {
+			fmt.Printf("  - %s\n", dir)
+		}
+		fmt.Println()
+	}
+
+	if len(currentProject.Setup.CopyFiles) > 0 {
+		fmt.Println("Copy files:")
+		for _, copyFile := range currentProject.Setup.CopyFiles {
+			fmt.Printf("  - %s → %s\n", copyFile.Source, copyFile.Target)
+		}
+		fmt.Println()
+	}
+
+	if len(currentProject.Setup.Commands) > 0 {
+		fmt.Println("Run commands:")
+		for _, cmd := range currentProject.Setup.Commands {
+			fmt.Printf("  - %s (in %s)\n", cmd.Command, cmd.Directory)
+		}
+		fmt.Println()
 	}
 }
 

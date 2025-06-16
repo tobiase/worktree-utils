@@ -1,0 +1,48 @@
+# Example project configuration with setup automation
+# Save this as ~/.config/wt/projects/myproject.yaml
+
+name: myproject
+match:
+  paths:
+    - "/path/to/myproject"
+    - "/path/to/myproject-worktrees/*"
+  remotes:
+    - "https://github.com/user/myproject.git"
+
+# Custom navigation commands
+commands:
+  api:
+    description: "Go to API directory"
+    target: "services/api"
+  web:
+    description: "Go to web app directory"
+    target: "applications/dashboard-app"
+
+# Worktree setup automation
+setup:
+  # Create necessary directories
+  create_directories:
+    - "logs"
+    - "tmp/cache"
+    - "storage/uploads"
+
+  # Copy files from main repo to new worktree
+  copy_files:
+    - source: ".env.example"
+      target: "applications/dashboard-app/.env"
+    - source: "config/database.yml.example"
+      target: "config/database.yml"
+    - source: ".env.api"
+      target: "services/api/.env"
+
+  # Run setup commands
+  commands:
+    - directory: "applications/dashboard-app"
+      command: "npm install"
+    - directory: "services/api"
+      command: "composer install"
+    - directory: "."
+      command: "make setup-dev"
+
+settings:
+  worktree_base: "/path/to/myproject-worktrees"
