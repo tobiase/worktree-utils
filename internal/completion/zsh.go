@@ -66,7 +66,7 @@ func GenerateZshCompletion(configMgr *config.Manager) string {
 func generateZshCommandCompletion(builder *strings.Builder, cmd Command, data *CompletionData) {
 	switch cmd.Name {
 	case "go", "rm", "env-copy":
-		builder.WriteString("                    _wt_branches\n")
+		builder.WriteString("                    _wt_worktree_branches\n")
 	case "new":
 		builder.WriteString("                    _wt_new_args\n")
 	case "completion":
@@ -134,6 +134,26 @@ func generateZshHelperFunctions(builder *strings.Builder, data *CompletionData) 
 	builder.WriteString("        _describe 'branches' branches\n")
 	builder.WriteString("    else\n")
 	builder.WriteString("        _message 'no branches found'\n")
+	builder.WriteString("    fi\n")
+	builder.WriteString("}\n\n")
+
+	// Worktree branches (only existing worktrees)
+	builder.WriteString("_wt_worktree_branches() {\n")
+	builder.WriteString("    local branches=()\n")
+	builder.WriteString("    \n")
+	builder.WriteString("    # Get branches from wt list (only existing worktrees)\n")
+	builder.WriteString("    if command -v wt >/dev/null 2>&1; then\n")
+	builder.WriteString("        local wt_output\n")
+	builder.WriteString("        wt_output=$(wt list 2>/dev/null)\n")
+	builder.WriteString("        if [[ $? -eq 0 && -n \"$wt_output\" ]]; then\n")
+	builder.WriteString("            branches=(${(f)\"$(echo \"$wt_output\" | awk '{print $2}' | grep -v '^$' | sort -u)\"})\n")
+	builder.WriteString("        fi\n")
+	builder.WriteString("    fi\n")
+	builder.WriteString("    \n")
+	builder.WriteString("    if [[ ${#branches[@]} -gt 0 ]]; then\n")
+	builder.WriteString("        _describe 'worktree branches' branches\n")
+	builder.WriteString("    else\n")
+	builder.WriteString("        _message 'no worktrees found'\n")
 	builder.WriteString("    fi\n")
 	builder.WriteString("}\n\n")
 

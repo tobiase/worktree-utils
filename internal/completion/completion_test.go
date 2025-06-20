@@ -281,9 +281,9 @@ func TestCommandFlags(t *testing.T) {
 func TestCommandArguments(t *testing.T) {
 	data := GetCompletionData(nil)
 
-	// Test commands that should have branch arguments
-	branchCommands := []string{"rm", "go", "env-copy"}
-	for _, cmdName := range branchCommands {
+	// Test commands that should have worktree branch arguments
+	worktreeBranchCommands := []string{"rm", "go", "env-copy"}
+	for _, cmdName := range worktreeBranchCommands {
 		t.Run(cmdName, func(t *testing.T) {
 			cmd := data.GetCommandByName(cmdName)
 			if cmd == nil {
@@ -296,8 +296,8 @@ func TestCommandArguments(t *testing.T) {
 			}
 
 			firstArg := cmd.Args[0]
-			if firstArg.Type != ArgBranch && cmdName != "go" { // go is optional
-				t.Errorf("Command '%s' first argument should be branch type, got %v", cmdName, firstArg.Type)
+			if firstArg.Type != ArgWorktreeBranch && cmdName != "go" { // go is optional
+				t.Errorf("Command '%s' first argument should be worktree branch type, got %v", cmdName, firstArg.Type)
 			}
 		})
 	}
@@ -318,6 +318,7 @@ func TestGetCompletionCandidates(t *testing.T) {
 		{ArgProject, []string{"api", "frontend", "backend"}},
 		{ArgString, []string{}},
 		{ArgFile, []string{}},
+		// Note: ArgWorktreeBranch is tested separately since it calls git commands
 	}
 
 	for _, tc := range testCases {
@@ -336,6 +337,16 @@ func TestGetCompletionCandidates(t *testing.T) {
 			}
 		})
 	}
+
+	// Test ArgWorktreeBranch separately (may fail if not in git repo)
+	t.Run("ArgWorktreeBranch", func(t *testing.T) {
+		result := data.GetCompletionCandidates([]string{}, ArgWorktreeBranch)
+		// In test environment, this might return empty list due to git command failure
+		// That's expected and acceptable
+		if result == nil {
+			t.Error("Expected slice, got nil")
+		}
+	})
 }
 
 func TestParseWorktreeBranches(t *testing.T) {

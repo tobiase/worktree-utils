@@ -43,6 +43,7 @@ type ArgumentType int
 const (
 	ArgString ArgumentType = iota
 	ArgBranch
+	ArgWorktreeBranch
 	ArgProject
 	ArgFile
 )
@@ -97,7 +98,7 @@ func getCoreCommands() []Command {
 			Description: "Remove a worktree",
 			Flags:       []Flag{},
 			Args: []Argument{
-				{Name: "branch", Description: "Branch name", Type: ArgBranch},
+				{Name: "branch", Description: "Worktree branch name", Type: ArgWorktreeBranch},
 			},
 		},
 		{
@@ -105,7 +106,7 @@ func getCoreCommands() []Command {
 			Description: "Switch to a worktree",
 			Flags:       []Flag{},
 			Args: []Argument{
-				{Name: "branch", Description: "Branch name (optional)", Type: ArgBranch},
+				{Name: "branch", Description: "Worktree branch name (optional)", Type: ArgWorktreeBranch},
 			},
 		},
 		{
@@ -125,7 +126,7 @@ func getCoreCommands() []Command {
 				{Name: "--recursive", Description: "Copy recursively", HasValue: false},
 			},
 			Args: []Argument{
-				{Name: "branch", Description: "Target branch", Type: ArgBranch},
+				{Name: "branch", Description: "Target worktree branch", Type: ArgWorktreeBranch},
 			},
 		},
 		{
@@ -238,6 +239,17 @@ func parseWorktreeBranches(output string) []string {
 	return branches
 }
 
+// getWorktreeBranches returns only branches that have existing worktrees
+func getWorktreeBranches() ([]string, error) {
+	cmd := exec.Command("git", "worktree", "list", "--porcelain")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	return parseWorktreeBranches(string(output)), nil
+}
+
 // GetCommandByName returns a command by its name or alias
 func (d *CompletionData) GetCommandByName(name string) *Command {
 	// Check aliases first
@@ -280,6 +292,12 @@ func (d *CompletionData) GetCompletionCandidates(args []string, argType Argument
 	switch argType {
 	case ArgBranch:
 		return d.AvailableBranches
+	case ArgWorktreeBranch:
+		// For worktree branches, we need to get only existing worktree branches
+		if worktreeBranches, err := getWorktreeBranches(); err == nil {
+			return worktreeBranches
+		}
+		return []string{}
 	case ArgProject:
 		return d.ProjectCommands
 	default:

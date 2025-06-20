@@ -95,6 +95,9 @@ func generateBashCommandCompletion(builder *strings.Builder, cmd Command, data *
 		case ArgBranch:
 			builder.WriteString("            # Complete branch names\n")
 			builder.WriteString("            _wt_complete_branches\n")
+		case ArgWorktreeBranch:
+			builder.WriteString("            # Complete worktree branch names\n")
+			builder.WriteString("            _wt_complete_worktree_branches\n")
 		case ArgString:
 			if cmd.Name == "completion" {
 				builder.WriteString("            # Complete shell types\n")
@@ -135,6 +138,17 @@ func generateBashHelperFunctions(builder *strings.Builder, data *CompletionData)
 	builder.WriteString("    # Fallback to git branches if available\n")
 	builder.WriteString("    if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then\n")
 	builder.WriteString("        branches=$(git branch --format='%(refname:short)' 2>/dev/null)\n")
+	builder.WriteString("        COMPREPLY=($(compgen -W \"$branches\" -- \"$cur\"))\n")
+	builder.WriteString("    fi\n")
+	builder.WriteString("}\n\n")
+
+	// Worktree branch completion helper (only existing worktrees)
+	builder.WriteString("# Helper function to complete worktree branch names\n")
+	builder.WriteString("_wt_complete_worktree_branches() {\n")
+	builder.WriteString("    local branches\n")
+	builder.WriteString("    # Get branches from wt list (only existing worktrees)\n")
+	builder.WriteString("    if command -v wt >/dev/null 2>&1; then\n")
+	builder.WriteString("        branches=$(wt list 2>/dev/null | awk '{print $2}' | grep -v '^$' | sort -u)\n")
 	builder.WriteString("        COMPREPLY=($(compgen -W \"$branches\" -- \"$cur\"))\n")
 	builder.WriteString("    fi\n")
 	builder.WriteString("}\n\n")
