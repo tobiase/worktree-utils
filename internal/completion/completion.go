@@ -114,6 +114,7 @@ func getCoreCommands() []Command {
 			Description: "Create and switch to a new worktree",
 			Flags: []Flag{
 				{Name: "--base", Description: "Base branch", HasValue: true},
+				{Name: "--no-switch", Description: "Create without switching", HasValue: false},
 			},
 			Args: []Argument{
 				{Name: "branch", Description: "New branch name", Type: ArgString},

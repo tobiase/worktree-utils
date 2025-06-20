@@ -370,11 +370,11 @@ func handleNewCommand(args []string, configMgr *config.Manager) {
 	}
 
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Usage: wt new <branch> [--base <branch>]\n")
+		fmt.Fprintf(os.Stderr, "Usage: wt new <branch> [--base <branch>] [--no-switch]\n")
 		os.Exit(1)
 	}
 
-	branch, baseBranch := parseNewCommandArgs(args)
+	branch, baseBranch, noSwitch := parseNewCommandArgs(args)
 
 	// Use smart worktree creation - handles all branch states intelligently
 	path, err := worktree.SmartNewWorktree(branch, baseBranch, configMgr)
@@ -382,10 +382,15 @@ func handleNewCommand(args []string, configMgr *config.Manager) {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("CD:%s", path)
+
+	if noSwitch {
+		fmt.Printf("Created worktree at %s\n", path)
+	} else {
+		fmt.Printf("CD:%s", path)
+	}
 }
 
-func parseNewCommandArgs(args []string) (branch, baseBranch string) {
+func parseNewCommandArgs(args []string) (branch, baseBranch string, noSwitch bool) {
 	// Filter out help flags and find the first non-help argument as branch
 	var filteredArgs []string
 	for _, arg := range args {
@@ -395,7 +400,7 @@ func parseNewCommandArgs(args []string) (branch, baseBranch string) {
 	}
 
 	if len(filteredArgs) == 0 {
-		return "", ""
+		return "", "", false
 	}
 
 	branch = filteredArgs[0]
@@ -403,6 +408,8 @@ func parseNewCommandArgs(args []string) (branch, baseBranch string) {
 		if filteredArgs[i] == "--base" && i+1 < len(filteredArgs) {
 			baseBranch = filteredArgs[i+1]
 			i++
+		} else if filteredArgs[i] == "--no-switch" {
+			noSwitch = true
 		}
 	}
 	return
@@ -1058,7 +1065,7 @@ Smart commands (with fuzzy branch matching):
                       • Branch doesn't exist → Create branch + worktree + switch
                       • Branch exists, no worktree → Create worktree + switch
                       • Branch + worktree exist → Just switch
-                      Options: --base <branch>
+                      Options: --base <branch>, --no-switch
   go, switch, s       Switch to a worktree (no args = repo root)
                       Supports fuzzy matching: 'wt go mai' → switches to 'main'
                       Options: --fuzzy, -f (force interactive selection)

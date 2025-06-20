@@ -109,6 +109,88 @@ func TestCompleteWorkflow(t *testing.T) {
 	})
 }
 
+// TestNewNoSwitchWorkflow tests the new command with --no-switch flag
+func TestNewNoSwitchWorkflow(t *testing.T) {
+	// Build the binary
+	binPath := buildTestBinary(t)
+	defer os.Remove(binPath)
+
+	// Create test repository
+	repo, cleanup := helpers.CreateTestRepo(t)
+	defer cleanup()
+
+	// Change to repo directory
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	t.Run("new with --no-switch creates worktree without switching", func(t *testing.T) {
+		// Get current directory before command
+		pwdBefore, _ := os.Getwd()
+
+		// Run new command with --no-switch
+		output := runCommand(t, binPath, "new", "feature-no-switch", "--no-switch")
+
+		// Should show creation message, not CD: prefix
+		if strings.HasPrefix(output, "CD:") {
+			t.Error("Expected no CD: prefix with --no-switch flag")
+		}
+		if !strings.Contains(output, "Created worktree at") {
+			t.Errorf("Expected creation message, got: %s", output)
+		}
+
+		// Current directory should not have changed
+		pwdAfter, _ := os.Getwd()
+		if pwdBefore != pwdAfter {
+			t.Error("Directory changed despite --no-switch flag")
+		}
+
+		// Verify worktree was created
+		worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
+		worktreeDir := filepath.Join(worktreeBase, "feature-no-switch")
+		if _, err := os.Stat(worktreeDir); os.IsNotExist(err) {
+			t.Error("Worktree directory was not created")
+		}
+
+		// Verify worktree shows up in list
+		listOutput := runCommand(t, binPath, "list")
+		if !strings.Contains(listOutput, "feature-no-switch") {
+			t.Error("New worktree not shown in list")
+		}
+	})
+
+	t.Run("new without --no-switch switches to worktree", func(t *testing.T) {
+		// Run new command without --no-switch
+		output := runCommand(t, binPath, "new", "feature-with-switch")
+
+		// Should contain CD: prefix (may have other output before it)
+		if !strings.Contains(output, "CD:") {
+			t.Errorf("Expected CD: prefix without --no-switch flag, got: %s", output)
+		}
+
+		// Extract path from CD: prefix
+		lines := strings.Split(output, "\n")
+		var cdPath string
+		for _, line := range lines {
+			if strings.HasPrefix(line, "CD:") {
+				cdPath = strings.TrimPrefix(line, "CD:")
+				cdPath = strings.TrimSpace(cdPath)
+				break
+			}
+		}
+
+		if cdPath == "" {
+			t.Error("Could not find CD: path in output")
+			return
+		}
+
+		// Verify path exists
+		if _, err := os.Stat(cdPath); os.IsNotExist(err) {
+			t.Errorf("Worktree directory was not created at: %s", cdPath)
+		}
+	})
+}
+
 // TestEnvCopyWorkflow tests the env-copy functionality
 func TestEnvCopyWorkflow(t *testing.T) {
 	// Build the binary

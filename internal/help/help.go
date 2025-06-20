@@ -189,12 +189,18 @@ var commandHelpMap = map[string]CommandHelp{
 			"wt new feature               # Create new branch + worktree",
 			"wt new existing-branch       # Create worktree for existing branch",
 			"wt new feature --base main   # Create new branch from main",
+			"wt new feature --no-switch   # Create worktree without switching to it",
 		},
 		Flags: []FlagHelp{
 			{
 				Flag:        "--base <branch>",
 				Description: "Base branch for new branch creation",
 				Example:     "wt new feature --base develop",
+			},
+			{
+				Flag:        "--no-switch",
+				Description: "Create worktree without switching to it",
+				Example:     "wt new feature --no-switch",
 			},
 		},
 		SeeAlso: []string{"wt go", "wt rm"},
