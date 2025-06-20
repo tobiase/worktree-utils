@@ -9,6 +9,93 @@ This document tracks work completed during each development session to enable se
 
 ---
 
+## 2025-06-17 - Critical Completion System Bug Fix
+
+### Context
+Discovered and fixed a critical safety bug in the shell completion system where `wt rm` and other commands were showing all git branches instead of only existing worktree branches. This was dangerous because `wt rm` should only remove worktrees, not git branches.
+
+### Work Completed
+
+#### 1. **Critical Bug Identification**
+- User reported: `wt rm` tab completion shows all git branches, including non-worktree branches
+- **Safety Issue**: Could lead to users attempting to remove branches that don't have worktrees
+- Commands affected: `wt rm`, `wt go`, `wt env-copy` (all should only operate on existing worktrees)
+
+#### 2. **Completion System Architecture Fix**
+- **Added `ArgWorktreeBranch` argument type** to distinguish from `ArgBranch`
+- **Updated command definitions** in `internal/completion/completion.go`:
+  - `rm`: Changed from `ArgBranch` to `ArgWorktreeBranch`
+  - `go`: Changed from `ArgBranch` to `ArgWorktreeBranch`
+  - `env-copy`: Changed from `ArgBranch` to `ArgWorktreeBranch`
+- **Created separate completion functions** that only use `wt list` output
+
+#### 3. **Shell Completion Implementation**
+- **Bash completion (`internal/completion/bash.go`)**:
+  - Added `_wt_complete_worktree_branches()` function
+  - Uses `wt list` to get only existing worktree branches
+  - Updated command routing to use worktree-specific completion
+- **Zsh completion (`internal/completion/zsh.go`)**:
+  - Added `_wt_worktree_branches()` function
+  - Proper zsh syntax for worktree branch completion
+  - Updated command case statements
+
+#### 4. **Core Logic Enhancement**
+- **Added `getWorktreeBranches()` function** in `completion.go`
+- **Updated `GetCompletionCandidates()`** to handle `ArgWorktreeBranch` type
+- **Enhanced `parseWorktreeBranches()`** to work with new function
+
+#### 5. **Test Updates**
+- **Fixed `TestCommandArguments`** to expect `ArgWorktreeBranch` instead of `ArgBranch`
+- **Added separate test for `ArgWorktreeBranch`** with proper git command handling
+- **All tests passing** after completion system update
+
+### Technical Implementation Details
+
+**Before (Dangerous):**
+```bash
+# wt rm <TAB> showed ALL git branches
+wt rm main feature-1 some-random-branch-without-worktree
+```
+
+**After (Safe):**
+```bash
+# wt rm <TAB> only shows existing worktree branches
+wt rm feature-1 feature-2  # Only branches with actual worktrees
+```
+
+**Key Code Changes:**
+```go
+// Command definitions now use ArgWorktreeBranch
+{Name: "branch", Description: "Worktree branch name", Type: ArgWorktreeBranch}
+
+// Completion candidates function handles both types
+case ArgWorktreeBranch:
+    if worktreeBranches, err := getWorktreeBranches(); err == nil {
+        return worktreeBranches
+    }
+    return []string{}
+```
+
+### Safety Impact
+- **Prevented dangerous operations**: Users can no longer accidentally attempt to remove non-existent worktrees
+- **Improved UX**: Completion now only shows valid options for each command
+- **Maintained backward compatibility**: No changes to command behavior, only completion
+
+### Verification
+- ✅ All tests passing after argument type updates
+- ✅ Bash completion generates correct worktree-only functions
+- ✅ Zsh completion generates correct worktree-only functions
+- ✅ Manual testing confirms only worktree branches shown for `wt rm`
+
+### Next Steps for Future Sessions
+1. Test completion installation and functionality in fresh shell environment
+2. Monitor for any edge cases in worktree branch detection
+3. Consider adding similar safety checks to other completion systems
+
+This fix eliminates a significant safety risk while improving the overall user experience of the completion system.
+
+---
+
 ## 2025-06-17 - Claude Code Custom Commands Implementation
 
 ### Context
