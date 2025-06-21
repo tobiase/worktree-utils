@@ -19,10 +19,12 @@ import (
 
 // Version information - set by build flags
 var (
-	version = "dev"
-	commit  = "unknown"
-	date    = "unknown"
+	version   = "dev"
+	buildTime = "unknown"
 )
+
+// osExit is a variable for testing - allows overriding os.Exit
+var osExit = os.Exit
 
 // Command flags
 const (
@@ -136,6 +138,12 @@ func resolveCommandAlias(cmd string) string {
 		return alias
 	}
 	return cmd
+}
+
+// printErrorAndExit prints an error message and exits with status 1
+func printErrorAndExit(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "wt: "+format+"\n", args...)
+	osExit(1)
 }
 
 // selectBranchInteractively handles interactive branch selection with consistent error handling
@@ -624,10 +632,15 @@ func handleVersionCommand(args []string) {
 		return
 	}
 
-	fmt.Printf("wt version %s\n", version)
-	if version != "dev" {
-		fmt.Printf("  commit: %s\n", commit)
-		fmt.Printf("  built:  %s\n", date)
+	versionStr := version
+	if versionStr == "" {
+		versionStr = "dev"
+	}
+
+	if buildTime != "" && buildTime != "unknown" {
+		fmt.Printf("wt version %s (built %s)\n", versionStr, buildTime)
+	} else {
+		fmt.Printf("wt version %s\n", versionStr)
 	}
 }
 
