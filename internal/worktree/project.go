@@ -232,6 +232,12 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
+	// Ensure target directory exists
+	targetDir := filepath.Dir(dst)
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return err
+	}
+
 	// Write to destination with same permissions
 	if err := os.WriteFile(dst, content, sourceInfo.Mode()); err != nil {
 		return err
@@ -248,8 +254,14 @@ func copyEnvFilesRecursive(sourceDir, targetDir string) error {
 			return err
 		}
 
-		// Skip if not a .env file
-		if info.IsDir() || !strings.HasSuffix(info.Name(), ".env") {
+		// Skip if not a .env file - must start with ".env" followed by nothing or a dot
+		if info.IsDir() {
+			return nil
+		}
+
+		// Check if it's a valid .env file pattern
+		name := info.Name()
+		if name != ".env" && !strings.HasPrefix(name, ".env.") {
 			return nil
 		}
 

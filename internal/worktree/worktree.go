@@ -148,6 +148,10 @@ func Add(branch string, cfg *config.Manager) error {
 
 // runWorktreeSetup executes setup automation for a newly created worktree
 func runWorktreeSetup(repoRoot, worktreePath string, setup *config.SetupConfig) error {
+	if setup == nil {
+		return nil
+	}
+
 	// Create directories
 	for _, dir := range setup.CreateDirectories {
 		dirPath := filepath.Join(worktreePath, dir)
