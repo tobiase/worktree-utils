@@ -1,6 +1,8 @@
 module github.com/tobiase/worktree-utils
 
-go 1.24.3
+go 1.24
+
+toolchain go1.24.3
 
 require (
 	github.com/ktr0731/go-fuzzyfinder v0.9.0

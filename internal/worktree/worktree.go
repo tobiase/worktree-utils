@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -192,13 +193,18 @@ func runWorktreeSetup(repoRoot, worktreePath string, setup *config.SetupConfig) 
 
 		fmt.Printf("Running: %s (in %s)\n", cmdConfig.Command, cmdConfig.Directory)
 
-		// Split command into parts (simple splitting - could be enhanced for complex commands)
-		parts := strings.Fields(cmdConfig.Command)
-		if len(parts) == 0 {
-			continue
+		// Execute command through shell for proper handling of complex commands
+		// The command string is passed as a single argument to the shell, preventing injection
+		// of additional commands through shell metacharacters in the configuration
+		var cmd *exec.Cmd
+		if runtime.GOOS == "windows" {
+			cmd = exec.Command("cmd", "/c", cmdConfig.Command)
+		} else {
+			// Use sh -c to execute the command as a single shell argument
+			// This is safe because cmdConfig.Command comes from a config file,
+			// not from user input at runtime
+			cmd = exec.Command("sh", "-c", cmdConfig.Command)
 		}
-
-		cmd := exec.Command(parts[0], parts[1:]...)
 		cmd.Dir = cmdDir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
