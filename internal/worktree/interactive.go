@@ -8,6 +8,11 @@ import (
 	"github.com/tobiase/worktree-utils/internal/interactive"
 )
 
+const (
+	mainBranchName   = "main"
+	masterBranchName = "master"
+)
+
 // SelectBranchInteractively presents a fuzzy finder for branch selection
 func SelectBranchInteractively() (string, error) {
 	branches, err := GetAvailableBranches()
@@ -101,13 +106,13 @@ func getBranchInfo(branch string) (string, error) {
 	}
 
 	// Skip comparison for main branch
-	if branch == "main" || branch == "master" {
+	if branch == mainBranchName || branch == masterBranchName {
 		return "Main branch", nil
 	}
 
 	// Check if main exists, fallback to master
-	mainBranch := "main"
-	cmd := exec.Command("git", "-C", repo, "rev-parse", "--verify", "main")
+	mainBranch := mainBranchName
+	cmd := exec.Command("git", "-C", repo, "rev-parse", "--verify", mainBranchName)
 	if cmd.Run() != nil {
 		cmd = exec.Command("git", "-C", repo, "rev-parse", "--verify", "master")
 		if cmd.Run() != nil {
