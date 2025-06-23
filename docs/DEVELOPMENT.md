@@ -14,8 +14,14 @@ make install-local
 # Install to ~/.local/bin
 make install
 
-# Run tests (when implemented)
+# Run tests
 make test
+
+# Run tests with coverage
+make test-ci
+
+# Run linting
+make lint
 
 # Build for all platforms
 make build-all
@@ -63,14 +69,56 @@ When developing new features or fixing bugs:
 
 - Test files should be in the same package
 - Use table-driven tests where appropriate
-- Mock external dependencies (git commands, file system)
+- Mock external dependencies using interfaces
+- Aim for edge case coverage over percentage metrics
+- Test actual user scenarios and failure modes
+
+#### Using the Interface Pattern
+
+When testing code that interacts with external systems:
+
+```go
+// Use interfaces for dependencies
+type Service struct {
+    git   git.Client
+    fs    filesystem.Filesystem
+    shell shell.Shell
+}
+
+// In tests, use mocks
+mockGit := &MockGitClient{
+    RevParseFunc: func(args ...string) (string, error) {
+        return "/test/repo", nil
+    },
+}
+service := NewService(mockGit, mockFS, mockShell)
+```
 
 ## Adding New Commands
 
 1. **Define command in main.go** - Add case to switch statement
 2. **Implement logic** - Preferably in appropriate package (worktree, config, etc.)
-3. **Update usage** - Add to showUsage() function
-4. **Document** - Update README and relevant docs
+3. **Add help integration** - Use `help.HasHelpFlag()` at start of handler
+4. **Create help content** - Add to internal/help/topics/
+5. **Update usage** - Add to showUsage() function
+6. **Add tests** - Cover main functionality and edge cases
+7. **Document** - Update README and relevant docs
+
+### Using CLI Utilities
+
+For new commands, consider using the CLI utilities:
+
+```go
+// Use flag parsing
+flags := cli.ParseFlags(args)
+if flags.Fuzzy { /* ... */ }
+
+// Use branch resolution
+target := cli.ResolveBranchArgument(args, flags.Fuzzy, "Usage: wt cmd <branch>")
+
+// Use error handling
+cli.HandleError(err, "failed to add worktree")
+```
 
 ### Command Guidelines
 
@@ -134,9 +182,32 @@ os.Exit(1)
 2. **Check exit codes** - Non-zero indicates error
 3. **Test shell wrapper** - Run commands with `bash -x` to see execution
 
+## Architecture Overview
+
+### Dependency Injection
+
+The codebase uses dependency injection for better testability:
+
+- **git.Client** - Interface for all git operations
+- **filesystem.Filesystem** - Interface for file system operations
+- **shell.Shell** - Interface for command execution
+- **worktree.Service** - Main service using injected dependencies
+
+### Package Structure
+
+- **cmd/wt/** - Main binary and command handlers
+- **internal/cli/** - Common CLI utilities (flags, routing, errors)
+- **internal/config/** - Project configuration management
+- **internal/git/** - Git operations interface and implementation
+- **internal/filesystem/** - File system interface and implementation
+- **internal/help/** - Help system and content
+- **internal/shell/** - Shell command execution
+- **internal/worktree/** - Core worktree operations
+
 ## Future Considerations
 
 - Keep backward compatibility in mind
 - Document breaking changes clearly
 - Consider user workflows when adding features
 - Keep the tool focused on worktree management
+- Consider migrating to a CLI framework (e.g., Cobra) for better structure
