@@ -685,6 +685,7 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 	if venvConfig == nil {
 		fmt.Fprintf(os.Stderr, "wt: virtualenv not configured for this project\n")
 		osExit(1)
+		return // This will never be reached, but satisfies the linter
 	}
 
 	// Default values
@@ -853,6 +854,7 @@ func handleProjectSetupRunCommand(args []string, configMgr *config.Manager) {
 		fmt.Fprintf(os.Stderr, "wt: no project configuration found for current directory\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt project init <name>' to configure this project\n")
 		osExit(1)
+		return // This will never be reached, but satisfies the linter
 	}
 
 	if currentProject.Setup == nil {
@@ -909,6 +911,7 @@ func handleProjectSetupShowCommand(args []string, configMgr *config.Manager) {
 		fmt.Fprintf(os.Stderr, "wt: no project configuration found for current directory\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt project init <name>' to configure this project\n")
 		osExit(1)
+		return // This will never be reached, but satisfies the linter
 	}
 
 	if currentProject.Setup == nil {
