@@ -292,14 +292,23 @@ func (d *CompletionData) GetAllCommandNames() []string {
 func (d *CompletionData) GetCompletionCandidates(args []string, argType ArgumentType) []string {
 	switch argType {
 	case ArgBranch:
+		if d.AvailableBranches == nil {
+			return []string{}
+		}
 		return d.AvailableBranches
 	case ArgWorktreeBranch:
 		// For worktree branches, we need to get only existing worktree branches
 		if worktreeBranches, err := getWorktreeBranches(); err == nil {
+			if worktreeBranches == nil {
+				return []string{}
+			}
 			return worktreeBranches
 		}
 		return []string{}
 	case ArgProject:
+		if d.ProjectCommands == nil {
+			return []string{}
+		}
 		return d.ProjectCommands
 	default:
 		return []string{}

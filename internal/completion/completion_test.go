@@ -342,10 +342,12 @@ func TestGetCompletionCandidates(t *testing.T) {
 	t.Run("ArgWorktreeBranch", func(t *testing.T) {
 		result := data.GetCompletionCandidates([]string{}, ArgWorktreeBranch)
 		// In test environment, this might return empty list due to git command failure
-		// That's expected and acceptable
+		// That's expected and acceptable - we just need to ensure it's not nil
 		if result == nil {
-			t.Error("Expected slice, got nil")
+			t.Error("Expected slice (even if empty), got nil")
 		}
+		// If we get a slice, it's valid regardless of length
+		t.Logf("Got %d worktree branches", len(result))
 	})
 }
 
