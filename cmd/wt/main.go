@@ -87,17 +87,17 @@ func main() {
 			if err != nil {
 				if err == interactive.ErrUserCancelled {
 					fmt.Fprintf(os.Stderr, "wt: selection cancelled\n")
-					os.Exit(1)
+					osExit(1)
 				}
 				// Fall back to showing usage if interactive selection fails
 				showUsage()
-				os.Exit(1)
+				osExit(1)
 			}
 			// Set os.Args as if the user typed the command
 			os.Args = []string{os.Args[0], selectedCommand}
 		} else {
 			showUsage()
-			os.Exit(1)
+			osExit(1)
 		}
 	}
 
@@ -151,7 +151,7 @@ func selectBranchInteractively(useFuzzy bool, usageMsg string) string {
 	branches, branchErr := worktree.GetAvailableBranches()
 	if branchErr != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", usageMsg)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	if interactive.ShouldUseFuzzy(len(branches), useFuzzy) {
@@ -159,16 +159,16 @@ func selectBranchInteractively(useFuzzy bool, usageMsg string) string {
 		if selectErr != nil {
 			if selectErr == interactive.ErrUserCancelled {
 				fmt.Fprintf(os.Stderr, "wt: selection cancelled\n")
-				os.Exit(1)
+				osExit(1)
 			}
 			fmt.Fprintf(os.Stderr, "wt: %v\n", selectErr)
-			os.Exit(1)
+			osExit(1)
 		}
 		return selectedBranch
 	}
 
 	fmt.Fprintf(os.Stderr, "%s\n", usageMsg)
-	os.Exit(1)
+	osExit(1)
 	return "" // unreachable
 }
 
@@ -176,7 +176,7 @@ func initializeConfig() *config.Manager {
 	configMgr, err := config.NewManager()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: failed to initialize config: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 	return configMgr
 }
@@ -233,7 +233,7 @@ func handleListCommand(args []string) {
 
 	if err := worktree.List(); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -266,20 +266,20 @@ func handleRemoveCommand(args []string) {
 		branches, branchErr := worktree.GetAvailableBranches()
 		if branchErr != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", branchErr)
-			os.Exit(1)
+			osExit(1)
 		}
 
 		resolvedTarget, resolveErr := worktree.ResolveBranchName(target, branches)
 		if resolveErr != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", resolveErr)
-			os.Exit(1)
+			osExit(1)
 		}
 		target = resolvedTarget
 	}
 
 	if err := worktree.Remove(target); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -293,7 +293,7 @@ func handleGoCommand(args []string) {
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 	fmt.Printf("CD:%s", path)
 }
@@ -337,10 +337,10 @@ func handleNoTarget(useFuzzy bool) (string, error) {
 		if selectErr != nil {
 			if selectErr == interactive.ErrUserCancelled {
 				fmt.Fprintf(os.Stderr, "wt: selection cancelled\n")
-				os.Exit(1)
+				osExit(1)
 			}
 			fmt.Fprintf(os.Stderr, "wt: %v\n", selectErr)
-			os.Exit(1)
+			osExit(1)
 		}
 		return handleTargetProvided(selectedBranch)
 	}
@@ -379,7 +379,7 @@ func handleNewCommand(args []string, configMgr *config.Manager) {
 
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Usage: wt new <branch> [--base <branch>] [--no-switch]\n")
-		os.Exit(1)
+		osExit(1)
 	}
 
 	branch, baseBranch, noSwitch := parseNewCommandArgs(args)
@@ -388,7 +388,7 @@ func handleNewCommand(args []string, configMgr *config.Manager) {
 	path, err := worktree.SmartNewWorktree(branch, baseBranch, configMgr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	if noSwitch {
@@ -457,7 +457,7 @@ func handleEnvCopyCommand(args []string) {
 
 	if err := worktree.CopyEnvFile(target, recursive); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -486,7 +486,7 @@ func handleEnvCommand(args []string) {
 		fmt.Fprintf(os.Stderr, "wt: unknown env subcommand '%s'\n", subcommand)
 		fmt.Fprintf(os.Stderr, "Available subcommands: sync, diff, list\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt env --help' for detailed help\n")
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -517,7 +517,7 @@ func handleEnvSyncCommand(args []string) {
 	if syncAll {
 		if err := worktree.SyncEnvFiles("", recursive, true); err != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-			os.Exit(1)
+			osExit(1)
 		}
 		return
 	}
@@ -529,20 +529,20 @@ func handleEnvSyncCommand(args []string) {
 		branches, branchErr := worktree.GetAvailableBranches()
 		if branchErr != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", branchErr)
-			os.Exit(1)
+			osExit(1)
 		}
 
 		resolvedTarget, resolveErr := worktree.ResolveBranchName(target, branches)
 		if resolveErr != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", resolveErr)
-			os.Exit(1)
+			osExit(1)
 		}
 		target = resolvedTarget
 	}
 
 	if err := worktree.SyncEnvFiles(target, recursive, false); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -571,27 +571,27 @@ func handleEnvDiffCommand(args []string) {
 		branches, branchErr := worktree.GetAvailableBranches()
 		if branchErr != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", branchErr)
-			os.Exit(1)
+			osExit(1)
 		}
 
 		resolvedTarget, resolveErr := worktree.ResolveBranchName(target, branches)
 		if resolveErr != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", resolveErr)
-			os.Exit(1)
+			osExit(1)
 		}
 		target = resolvedTarget
 	}
 
 	if err := worktree.DiffEnvFiles(target); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
 func handleEnvListCommand(args []string) {
 	if err := worktree.ListEnvFiles(); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -600,7 +600,7 @@ func handleEnvInteractive() {
 		fmt.Fprintf(os.Stderr, "Usage: wt env <subcommand> [options]\n")
 		fmt.Fprintf(os.Stderr, "Subcommands: sync, diff, list\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt env --help' for detailed help\n")
-		os.Exit(1)
+		osExit(1)
 	}
 
 	// Show interactive menu for env operations
@@ -609,10 +609,10 @@ func handleEnvInteractive() {
 	if err != nil {
 		if err == interactive.ErrUserCancelled {
 			fmt.Fprintf(os.Stderr, "wt: selection cancelled\n")
-			os.Exit(1)
+			osExit(1)
 		}
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	switch selected {
@@ -654,7 +654,7 @@ func handleCustomCommand(cmd string, configMgr *config.Manager) {
 	} else {
 		fmt.Fprintf(os.Stderr, "wt: unknown command '%s'\n", cmd)
 		showUsage()
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -662,13 +662,13 @@ func handleNavigationCommand(navCmd *config.NavigationCommand) {
 	repo, err := worktree.GetRepoRoot()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	targetPath := filepath.Join(repo, navCmd.Target)
 	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "wt: '%s' not found under repo\n", navCmd.Target)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	fmt.Printf("CD:%s", targetPath)
@@ -678,13 +678,13 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 	repo, err := worktree.GetRepoRoot()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	venvConfig := configMgr.GetVirtualenvConfig()
 	if venvConfig == nil {
 		fmt.Fprintf(os.Stderr, "wt: virtualenv not configured for this project\n")
-		os.Exit(1)
+		osExit(1)
 	}
 
 	// Default values
@@ -707,7 +707,7 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 		if _, err := os.Stat(activateScript); os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "wt: virtualenv not found at %s\n", venvPath)
 			fmt.Fprintf(os.Stderr, "Run 'wt mkvenv' to create it\n")
-			os.Exit(1)
+			osExit(1)
 		}
 		// Output EXEC command to activate virtualenv
 		fmt.Printf("EXEC:source %s", activateScript)
@@ -716,14 +716,14 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 		// Check if virtualenv already exists
 		if _, err := os.Stat(venvPath); err == nil {
 			fmt.Fprintf(os.Stderr, "wt: virtualenv already exists at %s\n", venvPath)
-			os.Exit(1)
+			osExit(1)
 		}
 
 		// Create virtualenv
 		fmt.Printf("Creating virtualenv at %s...\n", venvPath)
 		if err := worktree.RunCommand(python, "-m", "venv", venvPath); err != nil {
 			fmt.Fprintf(os.Stderr, "wt: failed to create virtualenv: %v\n", err)
-			os.Exit(1)
+			osExit(1)
 		}
 		fmt.Println("Virtualenv created successfully")
 
@@ -731,20 +731,20 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 		// Check if virtualenv exists
 		if _, err := os.Stat(venvPath); os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "wt: virtualenv not found at %s\n", venvPath)
-			os.Exit(1)
+			osExit(1)
 		}
 
 		// Remove virtualenv
 		fmt.Printf("Removing virtualenv at %s...\n", venvPath)
 		if err := os.RemoveAll(venvPath); err != nil {
 			fmt.Fprintf(os.Stderr, "wt: failed to remove virtualenv: %v\n", err)
-			os.Exit(1)
+			osExit(1)
 		}
 		fmt.Println("Virtualenv removed successfully")
 
 	default:
 		fmt.Fprintf(os.Stderr, "wt: unknown virtualenv action '%s'\n", navCmd.Target)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -756,7 +756,7 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 	if len(args) == 0 {
 		fmt.Fprintf(os.Stderr, "Usage: wt project [init|setup]\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt project --help' for detailed help\n")
-		os.Exit(1)
+		osExit(1)
 	}
 
 	subcmd := args[0]
@@ -766,20 +766,20 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 	case "init":
 		if len(subargs) < 1 {
 			fmt.Fprintf(os.Stderr, "Usage: wt project init <project-name>\n")
-			os.Exit(1)
+			osExit(1)
 		}
 
 		projectName := subargs[0]
 		cwd, err := os.Getwd()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wt: failed to get current directory: %v\n", err)
-			os.Exit(1)
+			osExit(1)
 		}
 
 		repo, err := worktree.GetRepoRoot()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-			os.Exit(1)
+			osExit(1)
 		}
 
 		// Create project config
@@ -805,7 +805,7 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 
 		if err := configMgr.SaveProjectConfig(project); err != nil {
 			fmt.Fprintf(os.Stderr, "wt: failed to save project config: %v\n", err)
-			os.Exit(1)
+			osExit(1)
 		}
 
 		fmt.Printf("Project '%s' initialized at %s\n", projectName, cwd)
@@ -818,7 +818,7 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 		fmt.Fprintf(os.Stderr, "wt: unknown project subcommand '%s'\n", subcmd)
 		fmt.Fprintf(os.Stderr, "Available subcommands: init, setup\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt project --help' for detailed help\n")
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -827,7 +827,7 @@ func handleProjectSetupCommand(args []string, configMgr *config.Manager) {
 		fmt.Fprintf(os.Stderr, "wt: project setup command requires a subcommand\n")
 		fmt.Fprintf(os.Stderr, "Available subcommands: run, show\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt project --help' for detailed help\n")
-		os.Exit(1)
+		osExit(1)
 	}
 
 	subcommand := args[0]
@@ -842,7 +842,7 @@ func handleProjectSetupCommand(args []string, configMgr *config.Manager) {
 		fmt.Fprintf(os.Stderr, "wt: unknown project setup subcommand '%s'\n", subcommand)
 		fmt.Fprintf(os.Stderr, "Available subcommands: run, show\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt project --help' for detailed help\n")
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -852,7 +852,7 @@ func handleProjectSetupRunCommand(args []string, configMgr *config.Manager) {
 	if currentProject == nil {
 		fmt.Fprintf(os.Stderr, "wt: no project configuration found for current directory\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt project init <name>' to configure this project\n")
-		os.Exit(1)
+		osExit(1)
 	}
 
 	if currentProject.Setup == nil {
@@ -864,20 +864,20 @@ func handleProjectSetupRunCommand(args []string, configMgr *config.Manager) {
 	repoRoot, err := worktree.GetRepoRoot()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	currentDir, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: failed to get current directory: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	// Determine which worktree we're in
 	worktrees, err := worktree.GetWorktreeInfo()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	var currentWorktreePath string
@@ -890,13 +890,13 @@ func handleProjectSetupRunCommand(args []string, configMgr *config.Manager) {
 
 	if currentWorktreePath == "" {
 		fmt.Fprintf(os.Stderr, "wt: not currently in a worktree\n")
-		os.Exit(1)
+		osExit(1)
 	}
 
 	fmt.Printf("Running setup automation for project '%s'...\n", currentProject.Name)
 	if err := worktree.RunSetup(repoRoot, currentWorktreePath, currentProject.Setup); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: setup failed: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	fmt.Println("Setup completed successfully!")
@@ -908,7 +908,7 @@ func handleProjectSetupShowCommand(args []string, configMgr *config.Manager) {
 	if currentProject == nil {
 		fmt.Fprintf(os.Stderr, "wt: no project configuration found for current directory\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt project init <name>' to configure this project\n")
-		os.Exit(1)
+		osExit(1)
 	}
 
 	if currentProject.Setup == nil {
@@ -992,14 +992,14 @@ func handleSetupCommand(args []string) {
 func handleSetupCheck() {
 	if err := setup.Check(); err != nil {
 		fmt.Fprintf(os.Stderr, "Check failed: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
 func handleSetupUninstall() {
 	if err := setup.Uninstall(); err != nil {
 		fmt.Fprintf(os.Stderr, "Uninstall failed: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -1007,7 +1007,7 @@ func handleCompletionOption(args []string, i int, opts *setup.CompletionOptions,
 	if i+1 >= len(args) {
 		fmt.Fprintf(os.Stderr, "Error: --completion requires a value (auto|bash|zsh|none)\n")
 		showSetupUsage()
-		os.Exit(1)
+		osExit(1)
 	}
 	completionValue := args[i+1]
 	switch completionValue {
@@ -1017,7 +1017,7 @@ func handleCompletionOption(args []string, i int, opts *setup.CompletionOptions,
 	default:
 		fmt.Fprintf(os.Stderr, "Error: invalid completion option '%s'. Use auto|bash|zsh|none\n", completionValue)
 		showSetupUsage()
-		os.Exit(1)
+		osExit(1)
 	}
 	*installMode = true
 }
@@ -1029,19 +1029,19 @@ func handleUnknownSetupOption(args []string, i int, arg string) {
 	}
 	fmt.Fprintf(os.Stderr, "Unknown setup option: %s\n", arg)
 	showSetupUsage()
-	os.Exit(1)
+	osExit(1)
 }
 
 func performSetupInstallation(opts setup.CompletionOptions) {
 	binaryPath, err := os.Executable()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to get executable path: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	if err := setup.SetupWithOptions(binaryPath, opts); err != nil {
 		fmt.Fprintf(os.Stderr, "Setup failed: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -1190,7 +1190,7 @@ func handleCompletionCommand(args []string, configMgr *config.Manager) {
 		fmt.Fprintf(os.Stderr, "  wt completion zsh >> ~/.zshrc\n\n")
 		fmt.Fprintf(os.Stderr, "  # Or use with eval\n")
 		fmt.Fprintf(os.Stderr, "  eval \"$(wt completion bash)\"\n")
-		os.Exit(1)
+		osExit(1)
 	}
 
 	shell := args[0]
@@ -1202,7 +1202,7 @@ func handleCompletionCommand(args []string, configMgr *config.Manager) {
 	default:
 		fmt.Fprintf(os.Stderr, "wt: unsupported shell '%s'\n", shell)
 		fmt.Fprintf(os.Stderr, "Supported shells: bash, zsh\n")
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -1233,7 +1233,7 @@ func handleUpdateCommand(args []string) {
 	release, hasUpdate, err := update.CheckForUpdate(version)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: failed to check for updates: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	fmt.Printf("Latest version: %s\n", release.TagName)
@@ -1268,7 +1268,7 @@ func handleUpdateCommand(args []string) {
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "wt: update failed: %v\n", err)
-		os.Exit(1)
+		osExit(1)
 	}
 
 	fmt.Printf("✓ Successfully updated to %s\n", release.TagName)

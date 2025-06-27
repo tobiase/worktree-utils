@@ -65,6 +65,14 @@ func TestGetGitRemote(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Configure git user for commits (for consistency)
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.name", "Test User"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.email", "test@example.com"); err != nil {
+		t.Fatal(err)
+	}
+
 	// Test without remote
 	remote, err := GetGitRemote()
 	if err != nil {
@@ -108,6 +116,14 @@ func TestGetRelativePath(t *testing.T) {
 	}
 
 	if _, _, err := helpers.RunCommand(t, "git", "init"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Configure git user for commits (for consistency)
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.name", "Test User"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.email", "test@example.com"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -162,6 +178,14 @@ func TestAdd(t *testing.T) {
 
 	// Initialize git repo
 	if _, _, err := helpers.RunCommand(t, "git", "init"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Configure git user for commits
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.name", "Test User"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.email", "test@example.com"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -233,6 +257,14 @@ func TestRemoveWithForce(t *testing.T) {
 
 	// Initialize git repo
 	if _, _, err := helpers.RunCommand(t, "git", "init"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Configure git user for commits
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.name", "Test User"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.email", "test@example.com"); err != nil {
 		t.Fatal(err)
 	}
 

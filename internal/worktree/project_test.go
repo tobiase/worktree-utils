@@ -241,6 +241,14 @@ func TestBranchDetection(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Configure git user for commits
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.name", "Test User"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.email", "test@example.com"); err != nil {
+		t.Fatal(err)
+	}
+
 	// Create initial commit
 	if err := os.WriteFile("README.md", []byte("# Test"), 0644); err != nil {
 		t.Fatal(err)
@@ -293,6 +301,14 @@ func TestGetRelativePathProject(t *testing.T) {
 	}
 
 	if _, _, err := helpers.RunCommand(t, "git", "init"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Configure git user for commits (in case any git operations need it)
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.name", "Test User"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := helpers.RunCommand(t, "git", "config", "user.email", "test@example.com"); err != nil {
 		t.Fatal(err)
 	}
 

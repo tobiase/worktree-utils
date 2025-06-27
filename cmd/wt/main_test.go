@@ -331,6 +331,16 @@ func TestHandleEnvCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Save original osExit
+			oldExit := osExit
+			exitCode := -1
+			osExit = func(code int) {
+				exitCode = code
+			}
+			defer func() {
+				osExit = oldExit
+			}()
+
 			stdout, stderr, _ := captureOutput(func() error {
 				handleEnvCommand(tt.args)
 				return nil
@@ -346,6 +356,9 @@ func TestHandleEnvCommand(t *testing.T) {
 				if !strings.Contains(stdout, ".env") {
 					t.Error("expected .env file in list output")
 				}
+			}
+			if tt.wantError && exitCode != 1 {
+				t.Errorf("expected exit code 1, got %d", exitCode)
 			}
 		})
 	}
