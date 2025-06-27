@@ -23,6 +23,11 @@ jobs:
         with:
           go-version: '1.24.3'
 
+      - name: Configure git for tests
+        run: |
+          git config --global user.name "Test User"
+          git config --global user.email "test@example.com"
+
       - name: Run tests
         run: go test ./...
 
