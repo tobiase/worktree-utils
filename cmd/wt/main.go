@@ -19,8 +19,8 @@ import (
 
 // Version information - set by build flags
 var (
-	version   = "dev"
-	buildTime = "unknown"
+	version = "dev"
+	date    = "unknown"
 )
 
 // osExit is a variable for testing - allows overriding os.Exit
@@ -139,6 +139,10 @@ func resolveCommandAlias(cmd string) string {
 }
 
 // printErrorAndExit prints an error message and exits with status 1
+// NOTE: This function is used throughout the codebase for consistent error handling.
+// Future refactoring should move towards returning errors from command handlers
+// and handling exits centrally in main(), but this pattern is maintained for
+// backward compatibility and to minimize changes.
 func printErrorAndExit(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "wt: "+format+"\n", args...)
 	osExit(1)
@@ -230,8 +234,7 @@ func handleListCommand(args []string) {
 	}
 
 	if err := worktree.List(); err != nil {
-		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		osExit(1)
+		printErrorAndExit("%v", err)
 	}
 }
 
@@ -263,21 +266,18 @@ func handleRemoveCommand(args []string) {
 		// Resolve target with fuzzy matching
 		branches, branchErr := worktree.GetAvailableBranches()
 		if branchErr != nil {
-			fmt.Fprintf(os.Stderr, "wt: %v\n", branchErr)
-			osExit(1)
+			printErrorAndExit("%v", branchErr)
 		}
 
 		resolvedTarget, resolveErr := worktree.ResolveBranchName(target, branches)
 		if resolveErr != nil {
-			fmt.Fprintf(os.Stderr, "wt: %v\n", resolveErr)
-			osExit(1)
+			printErrorAndExit("%v", resolveErr)
 		}
 		target = resolvedTarget
 	}
 
 	if err := worktree.Remove(target); err != nil {
-		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		osExit(1)
+		printErrorAndExit("%v", err)
 	}
 }
 
@@ -427,7 +427,7 @@ func handleEnvCopyCommand(args []string) {
 	}
 
 	// Show deprecation warning
-	fmt.Fprintf(os.Stderr, "Warning: 'wt env-copy' is deprecated. Use 'wt env sync' instead.\n")
+	fmt.Println("Warning: 'wt env-copy' is deprecated. Use 'wt env sync' instead.")
 
 	// Parse flags
 	var useFuzzy bool
@@ -635,8 +635,8 @@ func handleVersionCommand(args []string) {
 		versionStr = "dev"
 	}
 
-	if buildTime != "" && buildTime != "unknown" {
-		fmt.Printf("wt version %s (built %s)\n", versionStr, buildTime)
+	if date != "" && date != "unknown" {
+		fmt.Printf("wt version %s (built %s)\n", versionStr, date)
 	} else {
 		fmt.Printf("wt version %s\n", versionStr)
 	}
