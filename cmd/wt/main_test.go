@@ -475,3 +475,92 @@ func TestHelpFlagHandling(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleNewCommand(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		expectError    bool
+		expectCDOutput bool
+		expectedOutput string
+	}{
+		{
+			name:        "no arguments shows usage",
+			args:        []string{},
+			expectError: true,
+		},
+		{
+			name:           "help flag shows help",
+			args:           []string{"--help"},
+			expectError:    false,
+			expectCDOutput: false,
+		},
+		{
+			name:           "create new branch without --no-switch outputs CD:",
+			args:           []string{"test-branch"},
+			expectError:    false,
+			expectCDOutput: true,
+		},
+		{
+			name:           "create new branch with --no-switch outputs path",
+			args:           []string{"test-branch", "--no-switch"},
+			expectError:    false,
+			expectCDOutput: false,
+			expectedOutput: "Created worktree at",
+		},
+		{
+			name:           "create new branch with base branch",
+			args:           []string{"test-branch", "--base", "main"},
+			expectError:    false,
+			expectCDOutput: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip tests that would actually create worktrees
+			if !tt.expectError && tt.name != "help flag shows help" {
+				t.Skip("Skipping test that would create actual worktree")
+			}
+
+			// Capture output
+			oldStdout := os.Stdout
+			oldStderr := os.Stderr
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+			os.Stderr = w
+
+			// Capture exit code
+			oldExit := osExit
+			exitCode := -1
+			osExit = func(code int) {
+				exitCode = code
+			}
+
+			// Run command
+			handleNewCommand(tt.args, &config.Manager{})
+
+			// Restore
+			osExit = oldExit
+			w.Close()
+			os.Stdout = oldStdout
+			os.Stderr = oldStderr
+
+			output, _ := io.ReadAll(r)
+			outputStr := string(output)
+
+			// Check expectations
+			if tt.expectError && exitCode != 1 {
+				t.Errorf("Expected exit code 1, got %d", exitCode)
+			}
+
+			if tt.expectCDOutput && !strings.Contains(outputStr, "CD:") {
+				t.Errorf("Expected CD: in output, got: %s", outputStr)
+			}
+
+			if tt.expectedOutput != "" && !strings.Contains(outputStr, tt.expectedOutput) {
+				t.Errorf("Expected '%s' in output, got: %s", tt.expectedOutput, outputStr)
+			}
+		})
+	}
+}
