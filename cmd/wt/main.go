@@ -426,9 +426,6 @@ func handleEnvCopyCommand(args []string) {
 		return
 	}
 
-	// Show deprecation warning
-	fmt.Println("Warning: 'wt env-copy' is deprecated. Use 'wt env sync' instead.")
-
 	// Parse flags
 	var useFuzzy bool
 	var target string
