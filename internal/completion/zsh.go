@@ -170,7 +170,7 @@ func generateZshHelperFunctions(builder *strings.Builder, data *CompletionData) 
 	builder.WriteString("_wt_new_args() {\n")
 	builder.WriteString("    _arguments \\\n")
 	builder.WriteString("        '--base[Base branch]:branch:_wt_branches' \\\n")
-	builder.WriteString("        '1:new branch name:_message \"branch name\"'\n")
+	builder.WriteString("        '1:new branch name:_wt_branches'\n")
 	builder.WriteString("}\n\n")
 
 	// Project command arguments

@@ -117,6 +117,8 @@ func generateBashCommandCompletion(builder *strings.Builder, cmd Command, data *
 		builder.WriteString("                _wt_complete_branches\n")
 		builder.WriteString("                return\n")
 		builder.WriteString("            fi\n")
+		builder.WriteString("            # Complete branch names for new branch name argument\n")
+		builder.WriteString("            _wt_complete_branches\n")
 	}
 }
 
