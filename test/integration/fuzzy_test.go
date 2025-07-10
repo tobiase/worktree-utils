@@ -161,9 +161,9 @@ func TestCommandSelectionFallback(t *testing.T) {
 		t.Errorf("Expected usage information, got: %s", output)
 	}
 
-	// Should mention interactive features
-	if !strings.Contains(output, "Interactive features:") {
-		t.Error("Usage should mention interactive features")
+	// Should mention quick access features
+	if !strings.Contains(output, "Quick access:") {
+		t.Error("Usage should mention quick access features")
 	}
 }
 
@@ -183,8 +183,7 @@ func TestHelpTextUpdates(t *testing.T) {
 	// Should contain fuzzy finder information
 	expectedPhrases := []string{
 		"--fuzzy",
-		"Interactive features",
-		"interactive command selection",
+		"Quick access",
 		"force interactive selection",
 	}
 
