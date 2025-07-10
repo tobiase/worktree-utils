@@ -65,12 +65,25 @@ wt() {
   exit_code=$?
 
   if [ $exit_code -eq 0 ]; then
-    if [[ "$output" == "CD:"* ]]; then
-      cd "${output#CD:}"
-    elif [[ "$output" == "EXEC:"* ]]; then
-      eval "${output#EXEC:}"
-    else
-      [ -n "$output" ] && echo "$output"
+    # Check for CD: or EXEC: commands in the output
+    cd_path=""
+    exec_cmd=""
+    while IFS= read -r line; do
+      if [[ "$line" == "CD:"* ]]; then
+        cd_path="${line#CD:}"
+      elif [[ "$line" == "EXEC:"* ]]; then
+        exec_cmd="${line#EXEC:}"
+      else
+        # Print non-command lines
+        [ -n "$line" ] && echo "$line"
+      fi
+    done <<< "$output"
+
+    # Execute CD or EXEC commands after printing other output
+    if [ -n "$cd_path" ]; then
+      cd "$cd_path"
+    elif [ -n "$exec_cmd" ]; then
+      eval "$exec_cmd"
     fi
   else
     echo "$output" >&2
