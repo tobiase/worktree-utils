@@ -582,7 +582,6 @@ wt env-copy feature    # Shows: "Consider using 'wt env sync' instead"
 - Add new subcommands alongside existing commands
 - Extend existing commands with new flags
 - Provide multiple interfaces to the same functionality
-- Use deprecation warnings before removal
 
 ## Claude Code Integration
 

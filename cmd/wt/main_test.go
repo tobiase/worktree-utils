@@ -43,25 +43,25 @@ func TestHandleVersionCommand(t *testing.T) {
 	tests := []struct {
 		name        string
 		version     string
-		buildTime   string
+		date        string
 		wantContain string
 	}{
 		{
 			name:        "with version and build time",
 			version:     "1.2.3",
-			buildTime:   "2024-01-01",
+			date:        "2024-01-01",
 			wantContain: "wt version 1.2.3 (built 2024-01-01)",
 		},
 		{
 			name:        "development version",
 			version:     "dev",
-			buildTime:   "",
+			date:        "",
 			wantContain: "wt version dev",
 		},
 		{
 			name:        "empty version",
 			version:     "",
-			buildTime:   "",
+			date:        "",
 			wantContain: "wt version dev",
 		},
 	}
@@ -69,7 +69,7 @@ func TestHandleVersionCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			version = tt.version
-			buildTime = tt.buildTime
+			date = tt.date
 
 			stdout, _, err := captureOutput(func() error {
 				handleVersionCommand([]string{})

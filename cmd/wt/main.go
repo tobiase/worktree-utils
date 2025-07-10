@@ -19,8 +19,8 @@ import (
 
 // Version information - set by build flags
 var (
-	version   = "dev"
-	buildTime = "unknown"
+	version = "dev"
+	date    = "unknown"
 )
 
 // osExit is a variable for testing - allows overriding os.Exit
@@ -83,6 +83,8 @@ wt() {
     if [ -n "$cd_path" ]; then
       cd "$cd_path"
     elif [ -n "$exec_cmd" ]; then
+      # Security note: EXEC commands are only used for virtualenv activation
+      # and paths are quoted by the Go binary to prevent injection
       eval "$exec_cmd"
     fi
   else
@@ -139,6 +141,10 @@ func resolveCommandAlias(cmd string) string {
 }
 
 // printErrorAndExit prints an error message and exits with status 1
+// NOTE: This function is used throughout the codebase for consistent error handling.
+// Future refactoring should move towards returning errors from command handlers
+// and handling exits centrally in main(), but this pattern is maintained for
+// backward compatibility and to minimize changes.
 func printErrorAndExit(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "wt: "+format+"\n", args...)
 	osExit(1)
@@ -230,8 +236,7 @@ func handleListCommand(args []string) {
 	}
 
 	if err := worktree.List(); err != nil {
-		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		osExit(1)
+		printErrorAndExit("%v", err)
 	}
 }
 
@@ -263,21 +268,18 @@ func handleRemoveCommand(args []string) {
 		// Resolve target with fuzzy matching
 		branches, branchErr := worktree.GetAvailableBranches()
 		if branchErr != nil {
-			fmt.Fprintf(os.Stderr, "wt: %v\n", branchErr)
-			osExit(1)
+			printErrorAndExit("%v", branchErr)
 		}
 
 		resolvedTarget, resolveErr := worktree.ResolveBranchName(target, branches)
 		if resolveErr != nil {
-			fmt.Fprintf(os.Stderr, "wt: %v\n", resolveErr)
-			osExit(1)
+			printErrorAndExit("%v", resolveErr)
 		}
 		target = resolvedTarget
 	}
 
 	if err := worktree.Remove(target); err != nil {
-		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		osExit(1)
+		printErrorAndExit("%v", err)
 	}
 }
 
@@ -425,9 +427,6 @@ func handleEnvCopyCommand(args []string) {
 	if help.HasHelpFlag(args, "env-copy") {
 		return
 	}
-
-	// Show deprecation warning
-	fmt.Fprintf(os.Stderr, "Warning: 'wt env-copy' is deprecated. Use 'wt env sync' instead.\n")
 
 	// Parse flags
 	var useFuzzy bool
@@ -635,8 +634,8 @@ func handleVersionCommand(args []string) {
 		versionStr = "dev"
 	}
 
-	if buildTime != "" && buildTime != "unknown" {
-		fmt.Printf("wt version %s (built %s)\n", versionStr, buildTime)
+	if date != "" && date != "unknown" {
+		fmt.Printf("wt version %s (built %s)\n", versionStr, date)
 	} else {
 		fmt.Printf("wt version %s\n", versionStr)
 	}
@@ -699,6 +698,13 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 
 	venvPath := filepath.Join(repo, venvName)
 
+	// Validate that venvPath is within the repository
+	absRepo, _ := filepath.Abs(repo)
+	absVenvPath, _ := filepath.Abs(venvPath)
+	if !strings.HasPrefix(absVenvPath, absRepo) {
+		printErrorAndExit("invalid virtualenv path: must be within repository")
+	}
+
 	switch navCmd.Target {
 	case "activate":
 		// Check if virtualenv exists
@@ -709,7 +715,8 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 			osExit(1)
 		}
 		// Output EXEC command to activate virtualenv
-		fmt.Printf("EXEC:source %s", activateScript)
+		// Use printf with %q to properly quote the path for shell safety
+		fmt.Printf("EXEC:source %q", activateScript)
 
 	case "create":
 		// Check if virtualenv already exists
