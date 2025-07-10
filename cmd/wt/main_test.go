@@ -204,12 +204,11 @@ func TestHandleProjectCommand(t *testing.T) {
 			args:      []string{"init", "testproject"},
 			wantError: false,
 		},
-		// TODO: Fix this test - it causes os.Exit which terminates the test process
-		// {
-		// 	name:      "no subcommand",
-		// 	args:      []string{},
-		// 	wantError: true,
-		// },
+		{
+			name:      "no subcommand",
+			args:      []string{},
+			wantError: true,
+		},
 		{
 			name:      "help flag",
 			args:      []string{"--help"},
@@ -227,18 +226,31 @@ func TestHandleProjectCommand(t *testing.T) {
 			// Initialize config manager
 			configMgr := &config.Manager{}
 
+			// Save original osExit and capture exit code
+			oldExit := osExit
+			exitCode := -1
+			osExit = func(code int) {
+				exitCode = code
+			}
+			defer func() {
+				osExit = oldExit
+			}()
+
 			stdout, stderr, _ := captureOutput(func() error {
 				handleProjectCommand(tt.args, configMgr)
 				return nil
 			})
 
-			if tt.wantError && stderr == "" {
-				t.Error("expected error output")
+			if tt.wantError {
+				if exitCode != 1 && stderr == "" {
+					t.Error("expected error exit or error output")
+				}
+			} else {
+				if exitCode == 1 || (stderr != "" && (len(tt.args) == 0 || !strings.Contains(tt.args[0], "help"))) {
+					t.Errorf("unexpected error: exit=%d, stderr=%s", exitCode, stderr)
+				}
 			}
-			if !tt.wantError && stderr != "" && !strings.Contains(tt.args[0], "help") {
-				t.Errorf("unexpected error: %s", stderr)
-			}
-			if tt.args[0] == "init" && !tt.wantError {
+			if len(tt.args) > 0 && tt.args[0] == "init" && !tt.wantError {
 				if !strings.Contains(stdout, "Project 'testproject' initialized") {
 					t.Error("expected success message")
 				}
@@ -301,12 +313,11 @@ func TestHandleEnvCommand(t *testing.T) {
 		args      []string
 		wantError bool
 	}{
-		// TODO: Fix this test - it causes os.Exit which terminates the test process
-		// {
-		// 	name:      "no subcommand shows usage",
-		// 	args:      []string{},
-		// 	wantError: true,
-		// },
+		{
+			name:      "no subcommand shows usage",
+			args:      []string{},
+			wantError: true,
+		},
 		{
 			name:      "help flag",
 			args:      []string{"--help"},
@@ -346,11 +357,14 @@ func TestHandleEnvCommand(t *testing.T) {
 				return nil
 			})
 
-			if tt.wantError && stderr == "" {
-				t.Error("expected error output")
-			}
-			if !tt.wantError && stderr != "" && !strings.Contains(tt.args[0], "help") {
-				t.Errorf("unexpected error: %s", stderr)
+			if tt.wantError {
+				if exitCode != 1 && stderr == "" {
+					t.Error("expected error exit or error output")
+				}
+			} else {
+				if exitCode == 1 || (stderr != "" && len(tt.args) > 0 && !strings.Contains(tt.args[0], "help")) {
+					t.Errorf("unexpected error: exit=%d, stderr=%s", exitCode, stderr)
+				}
 			}
 			if len(tt.args) > 0 && tt.args[0] == "list" {
 				if !strings.Contains(stdout, ".env") {

@@ -758,6 +758,7 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 		fmt.Fprintf(os.Stderr, "Usage: wt project [init|setup]\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt project --help' for detailed help\n")
 		osExit(1)
+		return // Needed for testing when osExit is mocked
 	}
 
 	subcmd := args[0]
