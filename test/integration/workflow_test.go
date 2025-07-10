@@ -70,7 +70,12 @@ func TestCompleteWorkflow(t *testing.T) {
 		}
 
 		// Verify the CD path matches the created worktree
-		if cdPath != "" && cdPath != worktreePath {
+		// Note: On macOS, /private/var and /var point to the same location
+		// We need to normalize both paths for comparison
+		normalizedCDPath, _ := filepath.EvalSymlinks(cdPath)
+		normalizedWorktreePath, _ := filepath.EvalSymlinks(worktreePath)
+
+		if cdPath != "" && normalizedCDPath != normalizedWorktreePath {
 			t.Errorf("CD path %s doesn't match created worktree %s", cdPath, worktreePath)
 		}
 	})
