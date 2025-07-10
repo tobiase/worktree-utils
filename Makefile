@@ -1,4 +1,4 @@
-.PHONY: build install install-local test test-ci clean lint install-golangci-lint test-completion test-completion-interactive test-setup test-fresh debug-completion help
+.PHONY: help build build-all install-local install test test-coverage test-ci lint lint-all install-golangci-lint setup-hooks test-completion test-completion-interactive test-setup test-fresh debug-completion clean
 
 # Build variables
 BINARY_NAME=wt-bin
@@ -20,16 +20,27 @@ help: ## Show this help message
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Available targets:"
-	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-30s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-30s %s\n", $$1, $$2}'
+
+## Building & Installation ##
 
 build: ## Build the wt-bin binary
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY_NAME) $(MAIN_PATH)
+
+build-all: ## Build for all platforms (darwin/linux, amd64/arm64)
+	mkdir -p $(BUILD_DIR)
+	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
+	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
+	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PATH)
 
 install-local: ## Install for local development (uses current directory)
 	./install.sh local
 
 install: ## Install to ~/.local/bin
 	./install.sh user
+
+## Testing ##
 
 test: ## Run all tests
 	go test ./...
@@ -52,6 +63,18 @@ test-ci: ## Run the same tests as GitHub Actions
 	./$(BINARY_NAME) help
 	@echo "✅ All GitHub Actions checks passed! Safe to push."
 
+## Linting & Code Quality ##
+
+lint: install-golangci-lint ## Run golangci-lint
+	@if which golangci-lint > /dev/null; then \
+		golangci-lint run; \
+	else \
+		$(shell go env GOPATH)/bin/golangci-lint run; \
+	fi
+
+lint-all: ## Run pre-commit on all files
+	pre-commit run --all-files
+
 install-golangci-lint: ## Install golangci-lint if not present
 	@if ! which golangci-lint > /dev/null && ! test -f $(shell go env GOPATH)/bin/golangci-lint; then \
 		echo "Installing golangci-lint v1.64.2..."; \
@@ -59,13 +82,6 @@ install-golangci-lint: ## Install golangci-lint if not present
 		echo "✅ golangci-lint installed to $(shell go env GOPATH)/bin/golangci-lint"; \
 	else \
 		echo "✅ golangci-lint already installed"; \
-	fi
-
-lint: install-golangci-lint ## Run golangci-lint
-	@if which golangci-lint > /dev/null; then \
-		golangci-lint run; \
-	else \
-		$(shell go env GOPATH)/bin/golangci-lint run; \
 	fi
 
 setup-hooks: ## Install pre-commit hooks
@@ -76,19 +92,7 @@ setup-hooks: ## Install pre-commit hooks
 	pre-commit install --hook-type pre-push
 	@echo "Pre-commit hooks installed successfully!"
 
-lint-all: ## Run pre-commit on all files
-	pre-commit run --all-files
-
-clean: ## Remove build artifacts
-	rm -f $(BINARY_NAME)
-	rm -rf $(BUILD_DIR)
-
-build-all: ## Build for all platforms (darwin/linux, amd64/arm64)
-	mkdir -p $(BUILD_DIR)
-	GOOS=darwin GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
-	GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
-	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
-	GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PATH)
+## Shell Integration Testing ##
 
 test-completion: build ## Test shell completion in fresh shell (quick test)
 	@echo "🧪 Testing completion in fresh zsh shell..."
@@ -115,3 +119,9 @@ debug-completion: build ## Debug completion script generation
 	@echo ""
 	@echo "=== Testing in fresh shell ==="
 	@echo 'source <(./$(BINARY_NAME) completion zsh) && echo "Completion loaded" && type _wt' | zsh
+
+## Utilities ##
+
+clean: ## Remove build artifacts
+	rm -f $(BINARY_NAME)
+	rm -rf $(BUILD_DIR)
