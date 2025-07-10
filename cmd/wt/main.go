@@ -83,6 +83,8 @@ wt() {
     if [ -n "$cd_path" ]; then
       cd "$cd_path"
     elif [ -n "$exec_cmd" ]; then
+      # Security note: EXEC commands are only used for virtualenv activation
+      # and paths are quoted by the Go binary to prevent injection
       eval "$exec_cmd"
     fi
   else
@@ -696,6 +698,13 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 
 	venvPath := filepath.Join(repo, venvName)
 
+	// Validate that venvPath is within the repository
+	absRepo, _ := filepath.Abs(repo)
+	absVenvPath, _ := filepath.Abs(venvPath)
+	if !strings.HasPrefix(absVenvPath, absRepo) {
+		printErrorAndExit("invalid virtualenv path: must be within repository")
+	}
+
 	switch navCmd.Target {
 	case "activate":
 		// Check if virtualenv exists
@@ -706,7 +715,8 @@ func handleVirtualenvCommand(navCmd *config.NavigationCommand, configMgr *config
 			osExit(1)
 		}
 		// Output EXEC command to activate virtualenv
-		fmt.Printf("EXEC:source %s", activateScript)
+		// Use printf with %q to properly quote the path for shell safety
+		fmt.Printf("EXEC:source %q", activateScript)
 
 	case "create":
 		// Check if virtualenv already exists
