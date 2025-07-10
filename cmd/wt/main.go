@@ -65,12 +65,25 @@ wt() {
   exit_code=$?
 
   if [ $exit_code -eq 0 ]; then
-    if [[ "$output" == "CD:"* ]]; then
-      cd "${output#CD:}"
-    elif [[ "$output" == "EXEC:"* ]]; then
-      eval "${output#EXEC:}"
-    else
-      [ -n "$output" ] && echo "$output"
+    # Check for CD: or EXEC: commands in the output
+    cd_path=""
+    exec_cmd=""
+    while IFS= read -r line; do
+      if [[ "$line" == "CD:"* ]]; then
+        cd_path="${line#CD:}"
+      elif [[ "$line" == "EXEC:"* ]]; then
+        exec_cmd="${line#EXEC:}"
+      else
+        # Print non-command lines
+        [ -n "$line" ] && echo "$line"
+      fi
+    done <<< "$output"
+
+    # Execute CD or EXEC commands after printing other output
+    if [ -n "$cd_path" ]; then
+      cd "$cd_path"
+    elif [ -n "$exec_cmd" ]; then
+      eval "$exec_cmd"
     fi
   else
     echo "$output" >&2
@@ -81,24 +94,9 @@ wt() {
 
 func main() {
 	if len(os.Args) < 2 {
-		// No command specified - try interactive command selection
-		if interactive.IsInteractive() {
-			selectedCommand, err := interactive.SelectCommandInteractively()
-			if err != nil {
-				if err == interactive.ErrUserCancelled {
-					fmt.Fprintf(os.Stderr, "wt: selection cancelled\n")
-					osExit(1)
-				}
-				// Fall back to showing usage if interactive selection fails
-				showUsage()
-				osExit(1)
-			}
-			// Set os.Args as if the user typed the command
-			os.Args = []string{os.Args[0], selectedCommand}
-		} else {
-			showUsage()
-			osExit(1)
-		}
+		// No command specified - show usage
+		showUsage()
+		osExit(1)
 	}
 
 	// Handle help flags
@@ -758,6 +756,7 @@ func handleProjectCommand(args []string, configMgr *config.Manager) {
 		fmt.Fprintf(os.Stderr, "Usage: wt project [init|setup]\n")
 		fmt.Fprintf(os.Stderr, "Use 'wt project --help' for detailed help\n")
 		osExit(1)
+		return // Needed for testing when osExit is mocked
 	}
 
 	subcmd := args[0]
@@ -1070,8 +1069,7 @@ func showUsage() {
 func getCoreUsage() string {
 	return `Usage: wt <command> [arguments]
 
-Interactive features:
-  wt                  Launch interactive command selection (when no command specified)
+Quick access:
   wt 0, wt 1, wt 2    Quick switch to worktree by index (shortcut for 'wt go 0')
   --fuzzy, -f         Force interactive selection for branch/worktree arguments
 

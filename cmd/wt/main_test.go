@@ -204,12 +204,11 @@ func TestHandleProjectCommand(t *testing.T) {
 			args:      []string{"init", "testproject"},
 			wantError: false,
 		},
-		// TODO: Fix this test - it causes os.Exit which terminates the test process
-		// {
-		// 	name:      "no subcommand",
-		// 	args:      []string{},
-		// 	wantError: true,
-		// },
+		{
+			name:      "no subcommand",
+			args:      []string{},
+			wantError: true,
+		},
 		{
 			name:      "help flag",
 			args:      []string{"--help"},
@@ -227,18 +226,31 @@ func TestHandleProjectCommand(t *testing.T) {
 			// Initialize config manager
 			configMgr := &config.Manager{}
 
+			// Save original osExit and capture exit code
+			oldExit := osExit
+			exitCode := -1
+			osExit = func(code int) {
+				exitCode = code
+			}
+			defer func() {
+				osExit = oldExit
+			}()
+
 			stdout, stderr, _ := captureOutput(func() error {
 				handleProjectCommand(tt.args, configMgr)
 				return nil
 			})
 
-			if tt.wantError && stderr == "" {
-				t.Error("expected error output")
+			if tt.wantError {
+				if exitCode != 1 && stderr == "" {
+					t.Error("expected error exit or error output")
+				}
+			} else {
+				if exitCode == 1 || (stderr != "" && (len(tt.args) == 0 || !strings.Contains(tt.args[0], "help"))) {
+					t.Errorf("unexpected error: exit=%d, stderr=%s", exitCode, stderr)
+				}
 			}
-			if !tt.wantError && stderr != "" && !strings.Contains(tt.args[0], "help") {
-				t.Errorf("unexpected error: %s", stderr)
-			}
-			if tt.args[0] == "init" && !tt.wantError {
+			if len(tt.args) > 0 && tt.args[0] == "init" && !tt.wantError {
 				if !strings.Contains(stdout, "Project 'testproject' initialized") {
 					t.Error("expected success message")
 				}
@@ -301,12 +313,11 @@ func TestHandleEnvCommand(t *testing.T) {
 		args      []string
 		wantError bool
 	}{
-		// TODO: Fix this test - it causes os.Exit which terminates the test process
-		// {
-		// 	name:      "no subcommand shows usage",
-		// 	args:      []string{},
-		// 	wantError: true,
-		// },
+		{
+			name:      "no subcommand shows usage",
+			args:      []string{},
+			wantError: true,
+		},
 		{
 			name:      "help flag",
 			args:      []string{"--help"},
@@ -346,11 +357,14 @@ func TestHandleEnvCommand(t *testing.T) {
 				return nil
 			})
 
-			if tt.wantError && stderr == "" {
-				t.Error("expected error output")
-			}
-			if !tt.wantError && stderr != "" && !strings.Contains(tt.args[0], "help") {
-				t.Errorf("unexpected error: %s", stderr)
+			if tt.wantError {
+				if exitCode != 1 && stderr == "" {
+					t.Error("expected error exit or error output")
+				}
+			} else {
+				if exitCode == 1 || (stderr != "" && len(tt.args) > 0 && !strings.Contains(tt.args[0], "help")) {
+					t.Errorf("unexpected error: exit=%d, stderr=%s", exitCode, stderr)
+				}
 			}
 			if len(tt.args) > 0 && tt.args[0] == "list" {
 				if !strings.Contains(stdout, ".env") {
@@ -457,6 +471,95 @@ func TestHelpFlagHandling(t *testing.T) {
 			if !strings.Contains(strings.ToLower(output), cmd.name) &&
 				!strings.Contains(strings.ToLower(output), "usage") {
 				t.Errorf("help output should contain command name or usage for %s", cmd.name)
+			}
+		})
+	}
+}
+
+func TestHandleNewCommand(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		expectError    bool
+		expectCDOutput bool
+		expectedOutput string
+	}{
+		{
+			name:        "no arguments shows usage",
+			args:        []string{},
+			expectError: true,
+		},
+		{
+			name:           "help flag shows help",
+			args:           []string{"--help"},
+			expectError:    false,
+			expectCDOutput: false,
+		},
+		{
+			name:           "create new branch without --no-switch outputs CD:",
+			args:           []string{"test-branch"},
+			expectError:    false,
+			expectCDOutput: true,
+		},
+		{
+			name:           "create new branch with --no-switch outputs path",
+			args:           []string{"test-branch", "--no-switch"},
+			expectError:    false,
+			expectCDOutput: false,
+			expectedOutput: "Created worktree at",
+		},
+		{
+			name:           "create new branch with base branch",
+			args:           []string{"test-branch", "--base", "main"},
+			expectError:    false,
+			expectCDOutput: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Skip tests that would actually create worktrees
+			if !tt.expectError && tt.name != "help flag shows help" {
+				t.Skip("Skipping test that would create actual worktree")
+			}
+
+			// Capture output
+			oldStdout := os.Stdout
+			oldStderr := os.Stderr
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+			os.Stderr = w
+
+			// Capture exit code
+			oldExit := osExit
+			exitCode := -1
+			osExit = func(code int) {
+				exitCode = code
+			}
+
+			// Run command
+			handleNewCommand(tt.args, &config.Manager{})
+
+			// Restore
+			osExit = oldExit
+			w.Close()
+			os.Stdout = oldStdout
+			os.Stderr = oldStderr
+
+			output, _ := io.ReadAll(r)
+			outputStr := string(output)
+
+			// Check expectations
+			if tt.expectError && exitCode != 1 {
+				t.Errorf("Expected exit code 1, got %d", exitCode)
+			}
+
+			if tt.expectCDOutput && !strings.Contains(outputStr, "CD:") {
+				t.Errorf("Expected CD: in output, got: %s", outputStr)
+			}
+
+			if tt.expectedOutput != "" && !strings.Contains(outputStr, tt.expectedOutput) {
+				t.Errorf("Expected '%s' in output, got: %s", tt.expectedOutput, outputStr)
 			}
 		})
 	}

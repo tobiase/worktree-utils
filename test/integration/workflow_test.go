@@ -35,15 +35,48 @@ func TestCompleteWorkflow(t *testing.T) {
 
 	t.Run("create new worktree", func(t *testing.T) {
 		output := runCommand(t, binPath, "new", "feature-test", "--base", "HEAD")
+
+		// Check that output contains CD: command
 		if !strings.Contains(output, "CD:") {
 			t.Errorf("Expected CD: prefix for new command, got: %s", output)
 		}
+
+		// Extract CD path from potentially mixed output
+		var cdPath string
+		lines := strings.Split(output, "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "CD:") {
+				cdPath = strings.TrimPrefix(line, "CD:")
+				break
+			}
+		}
+
+		if cdPath == "" {
+			t.Error("CD: command found but couldn't extract path")
+		}
+
+		// The output might contain other lines like:
+		// "Creating new branch 'feature-test' and worktree..."
+		// "HEAD is now at ..."
+		// "CD:/path/to/worktree"
+		// "Preparing worktree..."
+		// This is the regression we're testing for - mixed output should still work
 
 		// Verify worktree was created
 		worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
 		worktreePath := filepath.Join(worktreeBase, "feature-test")
 		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
 			t.Error("Worktree directory was not created")
+		}
+
+		// Verify the CD path matches the created worktree
+		// Note: On macOS, /private/var and /var point to the same location
+		// We need to normalize both paths for comparison
+		normalizedCDPath, _ := filepath.EvalSymlinks(cdPath)
+		normalizedWorktreePath, _ := filepath.EvalSymlinks(worktreePath)
+
+		if cdPath != "" && normalizedCDPath != normalizedWorktreePath {
+			t.Errorf("CD path %s doesn't match created worktree %s", cdPath, worktreePath)
 		}
 	})
 

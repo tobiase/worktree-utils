@@ -51,8 +51,46 @@ func TestSubcommandRouter(t *testing.T) {
 	})
 
 	t.Run("show usage when no args and no interactive", func(t *testing.T) {
-		// Skip this test as it's difficult to test os.Exit without modifying global state
-		t.Skip("Skipping os.Exit test - would require global state modification")
+		// Save original osExit and capture exit code
+		oldExit := osExit
+		exitCode := -1
+		osExit = func(code int) {
+			exitCode = code
+		}
+		defer func() {
+			osExit = oldExit
+		}()
+
+		router := NewSubcommandRouter("test", "Usage: test <subcommand>")
+		router.AddCommand("subcommand", func(args []string) {})
+
+		router.Route([]string{})
+
+		if exitCode != 1 {
+			t.Errorf("Expected exit code 1, got %d", exitCode)
+		}
+	})
+
+	t.Run("unknown command shows suggestions and exits", func(t *testing.T) {
+		// Save original osExit and capture exit code
+		oldExit := osExit
+		exitCode := -1
+		osExit = func(code int) {
+			exitCode = code
+		}
+		defer func() {
+			osExit = oldExit
+		}()
+
+		router := NewSubcommandRouter("test", "Usage: test <subcommand>")
+		router.AddCommand("sync", func(args []string) {})
+		router.AddCommand("status", func(args []string) {})
+
+		router.Route([]string{"syn"}) // Typo that should suggest "sync"
+
+		if exitCode != 1 {
+			t.Errorf("Expected exit code 1, got %d", exitCode)
+		}
 	})
 
 	t.Run("find similar commands", func(t *testing.T) {

@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// osExit is a variable for testing - allows overriding os.Exit
+var osExit = os.Exit
+
 // SubcommandRouter routes subcommands to their handlers
 type SubcommandRouter struct {
 	Name        string
@@ -63,7 +66,8 @@ func (r *SubcommandRouter) Route(args []string) {
 		}
 		fmt.Fprintln(os.Stderr)
 		r.ShowUsage()
-		os.Exit(1)
+		osExit(1)
+		return // Needed for testing when osExit is mocked
 	}
 
 	handler(subargs)
@@ -88,7 +92,7 @@ func (r *SubcommandRouter) ShowUsage() {
 		}
 	}
 
-	os.Exit(1)
+	osExit(1)
 }
 
 // findSimilarCommands finds commands similar to the input
