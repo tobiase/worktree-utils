@@ -23,18 +23,16 @@ func NewTestHelper(t *testing.T) *TestHelper {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tempDir
-	if err := cmd.Run(); err != nil {
-		os.RemoveAll(tempDir)
-		t.Fatalf("Failed to init git repo: %v", err)
-	}
+	// Initialize git repo with main as the initial branch
+	// This ensures consistency across different git configurations
+	initTestRepoWithMain(t, tempDir)
 
 	// Configure git user
 	cmds := [][]string{
 		{"config", "user.name", "Test User"},
 		{"config", "user.email", "test@example.com"},
+		// Also set the default branch name for future operations
+		{"config", "init.defaultBranch", "main"},
 	}
 	for _, args := range cmds {
 		cmd := exec.Command("git", args...)
@@ -46,6 +44,27 @@ func NewTestHelper(t *testing.T) *TestHelper {
 	}
 
 	return &TestHelper{t: t, tempDir: tempDir}
+}
+
+// initTestRepoWithMain is a local version to avoid circular dependencies
+func initTestRepoWithMain(t *testing.T, dir string) {
+	t.Helper()
+
+	// Try to init with main as initial branch (git 2.28+)
+	cmd := exec.Command("git", "init", "--initial-branch=main")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		// Fallback for older git versions
+		cmd = exec.Command("git", "init")
+		cmd.Dir = dir
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("Failed to init git repo: %v", err)
+		}
+		// Set default branch config for consistency
+		cmd = exec.Command("git", "config", "init.defaultBranch", "main")
+		cmd.Dir = dir
+		_ = cmd.Run() // Ignore error if config not supported
+	}
 }
 
 // Cleanup removes the temporary directory
