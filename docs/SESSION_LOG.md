@@ -9,6 +9,40 @@ This document tracks work completed during each development session to enable se
 
 ---
 
+## 2025-07-11 - Recent Command Enhancement
+
+### Context
+Completed implementation of `wt recent` command enhancement. Changed default behavior to show only current user's branches (previously required --me flag). The --me flag was removed entirely and --all flag was added to show all branches.
+
+### Work Completed
+
+1. **Completed task-14: Add --all flag** (already implemented in previous session)
+   - Added --all flag to show all branches regardless of author
+   - Updated help documentation and shell completion
+   - Flag works correctly with -n and numeric navigation
+
+2. **Updated tests for new default behavior** (task-15, commit acb16d7)
+   - Removed all references to deprecated --me flag
+   - Updated TestHandleRecentCommand test descriptions
+   - Updated TestParseRecentFlags to test --all instead of --me
+   - Updated TestBranchFiltering to test new default behavior
+   - Fixed linting issues (formatting and string constant)
+
+### Key Decisions
+- The default behavior now shows only current user's branches
+- --me flag completely removed (no deprecation period per user request)
+- --all flag added to show all branches
+- Tests updated to reflect new behavior without backward compatibility
+
+### Next Steps
+- The `wt recent` command is now complete with improved ergonomics
+- Consider implementing other high-priority commands from CLAUDE.md:
+  - `wt status` - Cross-worktree status overview
+  - `wt clean` - Remove worktrees for merged/deleted branches
+  - `wt sync` - Pull latest changes across all worktrees
+
+---
+
 ## 2025-06-22 - Major Codebase Quality Improvements
 
 ### Context
