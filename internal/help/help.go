@@ -372,4 +372,35 @@ var commandHelpMap = map[string]CommandHelp{
 		},
 		SeeAlso: []string{"wt update"},
 	},
+	"recent": {
+		Name:        "recent",
+		Usage:       "wt recent [index] [options]",
+		Description: "Show and navigate to recently active branches",
+		Examples: []string{
+			"wt recent                    # List 10 most recent branches",
+			"wt recent -n 20              # List 20 most recent branches",
+			"wt recent --me               # Show only my branches",
+			"wt recent --others           # Show only other users' branches",
+			"wt recent 2                  # Navigate to branch at index 2",
+			"wt recent --me 0             # Navigate to my most recent branch",
+		},
+		Flags: []FlagHelp{
+			{
+				Flag:        "--me",
+				Description: "Show only branches authored by the current user",
+				Example:     "wt recent --me",
+			},
+			{
+				Flag:        "--others",
+				Description: "Show only branches authored by other users",
+				Example:     "wt recent --others",
+			},
+			{
+				Flag:        "-n",
+				Description: "Number of branches to show (default: 10)",
+				Example:     "wt recent -n 20",
+			},
+		},
+		SeeAlso: []string{"wt list", "wt go", "wt new"},
+	},
 }

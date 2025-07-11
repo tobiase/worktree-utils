@@ -1249,6 +1249,9 @@ Quick access:
 
 Smart commands (with fuzzy branch matching):
   list, ls            List all worktrees
+  recent              Show recently active branches (by commit date)
+                      Navigate directly: 'wt recent 2' → go to 3rd recent branch
+                      Options: --me, --others, -n <count>
   new <branch>        Smart worktree creation - handles all branch states:
                       • Branch doesn't exist → Create branch + worktree + switch
                       • Branch exists, no worktree → Create worktree + switch
