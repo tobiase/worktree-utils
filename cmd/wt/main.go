@@ -10,6 +10,7 @@ import (
 
 	"github.com/tobiase/worktree-utils/internal/completion"
 	"github.com/tobiase/worktree-utils/internal/config"
+	"github.com/tobiase/worktree-utils/internal/git"
 	"github.com/tobiase/worktree-utils/internal/help"
 	"github.com/tobiase/worktree-utils/internal/interactive"
 	"github.com/tobiase/worktree-utils/internal/setup"
@@ -199,6 +200,8 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 		fmt.Print(shellWrapper)
 	case listCmd:
 		handleListCommand(args)
+	case "recent":
+		handleRecentCommand(args)
 	case "rm":
 		handleRemoveCommand(args)
 	case "go":
@@ -237,6 +240,71 @@ func handleListCommand(args []string) {
 
 	if err := worktree.List(); err != nil {
 		printErrorAndExit("%v", err)
+	}
+}
+
+func handleRecentCommand(args []string) {
+	if help.HasHelpFlag(args, "recent") {
+		return
+	}
+
+	// For now, just implement basic functionality
+	// TODO: Add flags support in task-3
+	// TODO: Add numeric navigation in task-4
+
+	// Get git client
+	gitClient := git.NewCommandClient("")
+
+	// Get branches sorted by committer date
+	format := "%(refname:short)|%(committerdate:relative)|%(subject)|%(authorname)"
+	output, err := gitClient.ForEachRef(format, "--sort=-committerdate", "refs/heads/", "--count=10")
+	if err != nil {
+		printErrorAndExit("failed to get recent branches: %v", err)
+	}
+
+	if output == "" {
+		fmt.Println("No branches found")
+		return
+	}
+
+	// Get worktree list to check which branches have worktrees
+	worktrees, err := gitClient.WorktreeList()
+	if err != nil {
+		printErrorAndExit("failed to get worktrees: %v", err)
+	}
+
+	// Create a map of branches that have worktrees
+	worktreeBranches := make(map[string]bool)
+	for _, wt := range worktrees {
+		worktreeBranches[wt.Branch] = true
+	}
+
+	// Parse and display branches
+	lines := strings.Split(output, "\n")
+	for i, line := range lines {
+		if line == "" {
+			continue
+		}
+
+		parts := strings.Split(line, "|")
+		if len(parts) != 4 {
+			continue
+		}
+
+		branch := parts[0]
+		relativeDate := parts[1]
+		subject := parts[2]
+		author := parts[3]
+
+		// Check if branch has worktree
+		worktreeIndicator := " "
+		if worktreeBranches[branch] {
+			worktreeIndicator = "*"
+		}
+
+		// Format similar to wt list
+		fmt.Printf("%d: %s%-20s %-15s %-40s %s\n",
+			i, worktreeIndicator, branch, relativeDate, subject, author)
 	}
 }
 
