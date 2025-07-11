@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/tobiase/worktree-utils/internal/completion"
 	"github.com/tobiase/worktree-utils/internal/config"
@@ -300,29 +301,79 @@ func handleRecentCommand(args []string) {
 		}
 	}
 
-	// Get branches sorted by committer date
-	// When filtering by author, fetch more branches to ensure we get enough after filtering
-	format := "%(refname:short)|%(committerdate:relative)|%(subject)|%(authorname)"
-	fetchCount := count
-	if showMe || showOthers {
-		// Fetch many more branches when filtering to ensure we have enough after filtering
-		// We can't know how many branches belong to each author, so we fetch a large number
-		fetchCount = count * 10
-		if fetchCount < 100 {
-			fetchCount = 100 // Minimum of 100 when filtering
-		}
-	}
-
-	countStr := fmt.Sprintf("--count=%d", fetchCount)
-	output, err := gitClient.ForEachRef(format, "--sort=-committerdate", "refs/heads/", countStr)
+	// Get all branches first
+	branchesOutput, err := gitClient.ForEachRef("%(refname:short)", "refs/heads/")
 	if err != nil {
-		printErrorAndExit("failed to get recent branches: %v", err)
+		printErrorAndExit("failed to get branches: %v", err)
 	}
 
-	if output == "" {
+	if branchesOutput == "" {
 		fmt.Println("No branches found")
 		return
 	}
+
+	// Parse branch names
+	branchNames := strings.Split(branchesOutput, "\n")
+
+	// For each branch, get the last non-merge commit info
+	type branchCommitInfo struct {
+		branch       string
+		commitHash   string
+		relativeDate string
+		subject      string
+		author       string
+		timestamp    time.Time
+		hasWorktree  bool
+	}
+	branchInfos := make([]branchCommitInfo, 0, len(branchNames))
+
+	// Format for the commit info - include unix timestamp for sorting
+	commitFormat := "%H|%cr|%s|%an|%ct"
+
+	for _, branch := range branchNames {
+		branch = strings.TrimSpace(branch)
+		if branch == "" {
+			continue
+		}
+
+		// Get last non-merge commit info
+		commitInfo, err := gitClient.GetLastNonMergeCommit(branch, commitFormat)
+		if err != nil {
+			// Skip branches with no non-merge commits or other issues
+			continue
+		}
+
+		if commitInfo == "" {
+			// Branch has no non-merge commits
+			continue
+		}
+
+		// Parse commit info
+		parts := strings.Split(commitInfo, "|")
+		if len(parts) != 5 {
+			continue
+		}
+
+		// Parse unix timestamp
+		unixTime, err := strconv.ParseInt(parts[4], 10, 64)
+		if err != nil {
+			continue
+		}
+
+		branchInfos = append(branchInfos, branchCommitInfo{
+			branch:       branch,
+			commitHash:   parts[0],
+			relativeDate: parts[1],
+			subject:      parts[2],
+			author:       parts[3],
+			timestamp:    time.Unix(unixTime, 0),
+		})
+	}
+
+	// Sort by commit timestamp (most recent first)
+	sort.Slice(branchInfos, func(i, j int) bool {
+		return branchInfos[i].timestamp.After(branchInfos[j].timestamp)
+	})
 
 	// Get worktree list to check which branches have worktrees
 	worktrees, err := gitClient.WorktreeList()
@@ -336,47 +387,22 @@ func handleRecentCommand(args []string) {
 		worktreeBranches[wt.Branch] = true
 	}
 
-	// Parse branches
-	lines := strings.Split(output, "\n")
-	type branchInfo struct {
-		name         string
-		relativeDate string
-		subject      string
-		author       string
-		hasWorktree  bool
+	// Update hasWorktree field
+	for i := range branchInfos {
+		branchInfos[i].hasWorktree = worktreeBranches[branchInfos[i].branch]
 	}
-	branches := make([]branchInfo, 0, len(lines))
 
-	for _, line := range lines {
-		if line == "" {
+	// Filter by author if requested
+	branches := make([]branchCommitInfo, 0, len(branchInfos))
+	for _, bi := range branchInfos {
+		if showMe && bi.author != currentUserName {
+			continue
+		}
+		if showOthers && bi.author == currentUserName {
 			continue
 		}
 
-		parts := strings.Split(line, "|")
-		if len(parts) != 4 {
-			continue
-		}
-
-		branch := parts[0]
-		relativeDate := parts[1]
-		subject := parts[2]
-		author := parts[3]
-
-		// Filter by author if requested
-		if showMe && author != currentUserName {
-			continue
-		}
-		if showOthers && author == currentUserName {
-			continue
-		}
-
-		branches = append(branches, branchInfo{
-			name:         branch,
-			relativeDate: relativeDate,
-			subject:      subject,
-			author:       author,
-			hasWorktree:  worktreeBranches[branch],
-		})
+		branches = append(branches, bi)
 	}
 
 	// Handle numeric navigation
@@ -391,17 +417,17 @@ func handleRecentCommand(args []string) {
 		if targetBranch.hasWorktree {
 			// Find the worktree path
 			for _, wt := range worktrees {
-				if wt.Branch == targetBranch.name {
+				if wt.Branch == targetBranch.branch {
 					fmt.Printf("CD:%s", wt.Path)
 					return
 				}
 			}
 		} else {
 			// No worktree, checkout the branch
-			if err := gitClient.Checkout(targetBranch.name); err != nil {
-				printErrorAndExit("failed to checkout branch %s: %v", targetBranch.name, err)
+			if err := gitClient.Checkout(targetBranch.branch); err != nil {
+				printErrorAndExit("failed to checkout branch %s: %v", targetBranch.branch, err)
 			}
-			fmt.Printf("Switched to branch '%s'\n", targetBranch.name)
+			fmt.Printf("Switched to branch '%s'\n", targetBranch.branch)
 		}
 		return
 	}
@@ -420,7 +446,7 @@ func handleRecentCommand(args []string) {
 		}
 
 		fmt.Printf("%d: %s%-20s %-15s %-40s %s\n",
-			i, worktreeIndicator, branch.name, branch.relativeDate, branch.subject, branch.author)
+			i, worktreeIndicator, branch.branch, branch.relativeDate, branch.subject, branch.author)
 	}
 }
 
