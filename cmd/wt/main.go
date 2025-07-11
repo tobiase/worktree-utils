@@ -269,17 +269,27 @@ func handleRecentCommand(args []string) {
 	}
 
 	// Collect branch information
-	branchInfos := collectBranchInfo(gitClient)
-	if len(branchInfos) == 0 {
-		fmt.Println("No branches found")
+	branchResult := collectBranchInfo(gitClient)
+	if len(branchResult.branches) == 0 {
+		if len(branchResult.skipped) > 0 {
+			fmt.Printf("No valid branches found (%d branches skipped)\n", len(branchResult.skipped))
+			if flags.verbose {
+				fmt.Println("\nSkipped branches:")
+				for _, skipped := range branchResult.skipped {
+					fmt.Printf("  %s: %s\n", skipped.branch, skipped.reason)
+				}
+			}
+		} else {
+			fmt.Println("No branches found")
+		}
 		return
 	}
 
 	// Update worktree information
-	updateWorktreeInfo(branchInfos, gitClient)
+	updateWorktreeInfo(branchResult.branches, gitClient)
 
 	// Filter branches based on flags
-	branches := filterBranches(branchInfos, flags, currentUserName)
+	branches := filterBranches(branchResult.branches, flags, currentUserName)
 
 	// Handle numeric navigation if requested
 	if flags.navigateIndex >= 0 {
@@ -289,6 +299,14 @@ func handleRecentCommand(args []string) {
 
 	// Display branches
 	displayBranches(branches, flags.count)
+
+	// Display summary of skipped branches if verbose mode is enabled
+	if flags.verbose && len(branchResult.skipped) > 0 {
+		fmt.Printf("\n%d branches were skipped:\n", len(branchResult.skipped))
+		for _, skipped := range branchResult.skipped {
+			fmt.Printf("  %s: %s\n", skipped.branch, skipped.reason)
+		}
+	}
 }
 
 func handleRemoveCommand(args []string) {
@@ -1347,6 +1365,7 @@ type recentFlags struct {
 	showAll       bool
 	count         int
 	navigateIndex int
+	verbose       bool
 }
 
 // parseRecentFlags parses command line flags for the recent command
@@ -1365,6 +1384,9 @@ func parseRecentFlags(args []string) recentFlags {
 			i++
 		case arg == "--all":
 			flags.showAll = true
+			i++
+		case arg == "--verbose" || arg == "-v":
+			flags.verbose = true
 			i++
 		case arg == "-n" && i+1 < len(args):
 			flags.count = parseAndValidateCount(args[i+1])
@@ -1421,16 +1443,34 @@ type branchCommitInfo struct {
 	hasWorktree  bool
 }
 
+// skippedBranchInfo holds information about why a branch was skipped
+type skippedBranchInfo struct {
+	branch string
+	reason string
+}
+
+// branchCollectionResult holds the result of collecting branch information
+type branchCollectionResult struct {
+	branches       []branchCommitInfo
+	skipped        []skippedBranchInfo
+	totalProcessed int
+}
+
 // collectBranchInfo collects commit information for all branches
-func collectBranchInfo(gitClient git.Client) []branchCommitInfo {
+func collectBranchInfo(gitClient git.Client) branchCollectionResult {
 	// Get all branches first
 	branchesOutput, err := gitClient.ForEachRef("%(refname:short)", "refs/heads/")
 	if err != nil {
 		printErrorAndExit("failed to get branches: %v", err)
 	}
 
+	result := branchCollectionResult{
+		branches: make([]branchCommitInfo, 0),
+		skipped:  make([]skippedBranchInfo, 0),
+	}
+
 	if branchesOutput == "" {
-		return nil
+		return result
 	}
 
 	// Parse branch names
@@ -1446,27 +1486,43 @@ func collectBranchInfo(gitClient git.Client) []branchCommitInfo {
 			continue
 		}
 
+		result.totalProcessed++
+
 		// Get last non-merge commit info
 		commitInfo, err := gitClient.GetLastNonMergeCommit(branch, commitFormat)
 		if err != nil {
-			// Skip branches with no non-merge commits or other issues
+			result.skipped = append(result.skipped, skippedBranchInfo{
+				branch: branch,
+				reason: fmt.Sprintf("git command failed: %v", err),
+			})
 			continue
 		}
 
 		if commitInfo == "" {
-			// Branch has no non-merge commits
+			result.skipped = append(result.skipped, skippedBranchInfo{
+				branch: branch,
+				reason: "no non-merge commits found",
+			})
 			continue
 		}
 
 		// Parse commit info
 		parts := strings.Split(commitInfo, "|")
 		if len(parts) != 5 {
+			result.skipped = append(result.skipped, skippedBranchInfo{
+				branch: branch,
+				reason: fmt.Sprintf("invalid commit info format: expected 5 parts, got %d", len(parts)),
+			})
 			continue
 		}
 
 		// Parse unix timestamp
 		unixTime, err := strconv.ParseInt(parts[4], 10, 64)
 		if err != nil {
+			result.skipped = append(result.skipped, skippedBranchInfo{
+				branch: branch,
+				reason: fmt.Sprintf("invalid timestamp: %v", err),
+			})
 			continue
 		}
 
@@ -1485,7 +1541,8 @@ func collectBranchInfo(gitClient git.Client) []branchCommitInfo {
 		return branchInfos[i].timestamp.After(branchInfos[j].timestamp)
 	})
 
-	return branchInfos
+	result.branches = branchInfos
+	return result
 }
 
 // updateWorktreeInfo updates branch info with worktree status

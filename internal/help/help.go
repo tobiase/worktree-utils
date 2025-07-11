@@ -400,6 +400,12 @@ var commandHelpMap = map[string]CommandHelp{
 				Description: "Number of branches to show (default: 10)",
 				Example:     "wt recent -n 20",
 			},
+			{
+				Flag:        "--verbose",
+				ShortFlag:   "-v",
+				Description: "Show detailed information about skipped branches",
+				Example:     "wt recent --verbose",
+			},
 		},
 		SeeAlso: []string{"wt list", "wt go", "wt new"},
 	},
