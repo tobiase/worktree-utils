@@ -269,17 +269,17 @@ func handleRecentCommand(args []string) {
 	}
 
 	// Collect branch information
-	branchInfos := collectBranchInfo(gitClient)
-	if len(branchInfos) == 0 {
-		fmt.Println("No branches found")
+	branchResult := collectBranchInfo(gitClient)
+	if len(branchResult.branches) == 0 {
+		displayNoBranchesMessage(branchResult.skipped, flags.verbose)
 		return
 	}
 
 	// Update worktree information
-	updateWorktreeInfo(branchInfos, gitClient)
+	updateWorktreeInfo(branchResult.branches, gitClient)
 
 	// Filter branches based on flags
-	branches := filterBranches(branchInfos, flags, currentUserName)
+	branches := filterBranches(branchResult.branches, flags, currentUserName)
 
 	// Handle numeric navigation if requested
 	if flags.navigateIndex >= 0 {
@@ -289,6 +289,9 @@ func handleRecentCommand(args []string) {
 
 	// Display branches
 	displayBranches(branches, flags.count)
+
+	// Display summary of skipped branches if verbose mode is enabled
+	displaySkippedBranchesIfVerbose(branchResult.skipped, flags.verbose)
 }
 
 func handleRemoveCommand(args []string) {
@@ -1347,6 +1350,7 @@ type recentFlags struct {
 	showAll       bool
 	count         int
 	navigateIndex int
+	verbose       bool
 }
 
 // parseRecentFlags parses command line flags for the recent command
@@ -1365,6 +1369,9 @@ func parseRecentFlags(args []string) recentFlags {
 			i++
 		case arg == "--all":
 			flags.showAll = true
+			i++
+		case arg == "--verbose" || arg == "-v":
+			flags.verbose = true
 			i++
 		case arg == "-n" && i+1 < len(args):
 			flags.count = parseAndValidateCount(args[i+1])
@@ -1421,16 +1428,34 @@ type branchCommitInfo struct {
 	hasWorktree  bool
 }
 
+// skippedBranchInfo holds information about why a branch was skipped
+type skippedBranchInfo struct {
+	branch string
+	reason string
+}
+
+// branchCollectionResult holds the result of collecting branch information
+type branchCollectionResult struct {
+	branches       []branchCommitInfo
+	skipped        []skippedBranchInfo
+	totalProcessed int
+}
+
 // collectBranchInfo collects commit information for all branches
-func collectBranchInfo(gitClient git.Client) []branchCommitInfo {
+func collectBranchInfo(gitClient git.Client) branchCollectionResult {
 	// Get all branches first
 	branchesOutput, err := gitClient.ForEachRef("%(refname:short)", "refs/heads/")
 	if err != nil {
 		printErrorAndExit("failed to get branches: %v", err)
 	}
 
+	result := branchCollectionResult{
+		branches: make([]branchCommitInfo, 0),
+		skipped:  make([]skippedBranchInfo, 0),
+	}
+
 	if branchesOutput == "" {
-		return nil
+		return result
 	}
 
 	// Parse branch names
@@ -1446,27 +1471,43 @@ func collectBranchInfo(gitClient git.Client) []branchCommitInfo {
 			continue
 		}
 
+		result.totalProcessed++
+
 		// Get last non-merge commit info
 		commitInfo, err := gitClient.GetLastNonMergeCommit(branch, commitFormat)
 		if err != nil {
-			// Skip branches with no non-merge commits or other issues
+			result.skipped = append(result.skipped, skippedBranchInfo{
+				branch: branch,
+				reason: fmt.Sprintf("git command failed: %v", err),
+			})
 			continue
 		}
 
 		if commitInfo == "" {
-			// Branch has no non-merge commits
+			result.skipped = append(result.skipped, skippedBranchInfo{
+				branch: branch,
+				reason: "no non-merge commits found",
+			})
 			continue
 		}
 
 		// Parse commit info
 		parts := strings.Split(commitInfo, "|")
 		if len(parts) != 5 {
+			result.skipped = append(result.skipped, skippedBranchInfo{
+				branch: branch,
+				reason: fmt.Sprintf("invalid commit info format: expected 5 parts, got %d", len(parts)),
+			})
 			continue
 		}
 
 		// Parse unix timestamp
 		unixTime, err := strconv.ParseInt(parts[4], 10, 64)
 		if err != nil {
+			result.skipped = append(result.skipped, skippedBranchInfo{
+				branch: branch,
+				reason: fmt.Sprintf("invalid timestamp: %v", err),
+			})
 			continue
 		}
 
@@ -1485,7 +1526,8 @@ func collectBranchInfo(gitClient git.Client) []branchCommitInfo {
 		return branchInfos[i].timestamp.After(branchInfos[j].timestamp)
 	})
 
-	return branchInfos
+	result.branches = branchInfos
+	return result
 }
 
 // updateWorktreeInfo updates branch info with worktree status
@@ -1568,6 +1610,51 @@ func displayBranches(branches []branchCommitInfo, count int) {
 		displayCount = count
 	}
 
+	if displayCount == 0 {
+		return
+	}
+
+	// Calculate dynamic column widths based on actual content
+	maxBranchLen := 15  // minimum width
+	maxDateLen := 10    // minimum width
+	maxSubjectLen := 30 // minimum width
+
+	// Find the maximum length for each column
+	for i := 0; i < displayCount; i++ {
+		branch := branches[i]
+		branchRuneLen := len([]rune(branch.branch))
+		dateRuneLen := len([]rune(branch.relativeDate))
+		subjectRuneLen := len([]rune(branch.subject))
+
+		if branchRuneLen > maxBranchLen {
+			maxBranchLen = branchRuneLen
+		}
+		if dateRuneLen > maxDateLen {
+			maxDateLen = dateRuneLen
+		}
+		if subjectRuneLen > maxSubjectLen {
+			maxSubjectLen = subjectRuneLen
+		}
+	}
+
+	// Set reasonable maximum widths to prevent overly wide columns
+	const (
+		maxBranchWidth  = 40
+		maxSubjectWidth = 50
+		maxDateWidth    = 20
+	)
+
+	if maxBranchLen > maxBranchWidth {
+		maxBranchLen = maxBranchWidth
+	}
+	if maxSubjectLen > maxSubjectWidth {
+		maxSubjectLen = maxSubjectWidth
+	}
+	if maxDateLen > maxDateWidth {
+		maxDateLen = maxDateWidth
+	}
+
+	// Display branches with dynamic formatting
 	for i := 0; i < displayCount; i++ {
 		branch := branches[i]
 		worktreeIndicator := " "
@@ -1575,7 +1662,53 @@ func displayBranches(branches []branchCommitInfo, count int) {
 			worktreeIndicator = "*"
 		}
 
-		fmt.Printf("%d: %s%-20s %-15s %-40s %s\n",
-			i, worktreeIndicator, branch.branch, branch.relativeDate, branch.subject, branch.author)
+		// Truncate fields if they exceed maximum width
+		branchName := truncateWithEllipsis(branch.branch, maxBranchLen)
+		subject := truncateWithEllipsis(branch.subject, maxSubjectLen)
+		date := truncateWithEllipsis(branch.relativeDate, maxDateLen)
+
+		fmt.Printf("%d: %s%-*s %-*s %-*s %s\n",
+			i, worktreeIndicator,
+			maxBranchLen, branchName,
+			maxDateLen, date,
+			maxSubjectLen, subject,
+			branch.author)
+	}
+}
+
+// truncateWithEllipsis truncates a string to maxLen and adds ellipsis if needed
+func truncateWithEllipsis(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-3]) + "..."
+}
+
+// displayNoBranchesMessage shows appropriate message when no branches are found
+func displayNoBranchesMessage(skipped []skippedBranchInfo, verbose bool) {
+	if len(skipped) > 0 {
+		fmt.Printf("No valid branches found (%d branches skipped)\n", len(skipped))
+		if verbose {
+			fmt.Println("\nSkipped branches:")
+			for _, s := range skipped {
+				fmt.Printf("  %s: %s\n", s.branch, s.reason)
+			}
+		}
+	} else {
+		fmt.Println("No branches found")
+	}
+}
+
+// displaySkippedBranchesIfVerbose shows skipped branches summary if verbose mode is enabled
+func displaySkippedBranchesIfVerbose(skipped []skippedBranchInfo, verbose bool) {
+	if verbose && len(skipped) > 0 {
+		fmt.Printf("\n%d branches were skipped:\n", len(skipped))
+		for _, s := range skipped {
+			fmt.Printf("  %s: %s\n", s.branch, s.reason)
+		}
 	}
 }
