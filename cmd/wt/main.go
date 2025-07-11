@@ -76,8 +76,8 @@ wt() {
       elif [[ "$line" == "EXEC:"* ]]; then
         exec_cmd="${line#EXEC:}"
       else
-        # Print non-command lines
-        [ -n "$line" ] && echo "$line"
+        # Print non-command lines (including empty lines)
+        echo "$line"
       fi
     done <<< "$output"
 
