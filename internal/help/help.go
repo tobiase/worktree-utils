@@ -375,7 +375,7 @@ var commandHelpMap = map[string]CommandHelp{
 	"recent": {
 		Name:        "recent",
 		Usage:       "wt recent [index] [options]",
-		Description: "Show and navigate to your recently active branches (default: only your branches)",
+		Description: "Show and navigate to your recently active branches (default: only your branches, multi-line format)",
 		Examples: []string{
 			"wt recent                    # List your 10 most recent branches",
 			"wt recent -n 20              # List your 20 most recent branches",
@@ -405,6 +405,12 @@ var commandHelpMap = map[string]CommandHelp{
 				ShortFlag:   "-v",
 				Description: "Show detailed information about skipped branches",
 				Example:     "wt recent --verbose",
+			},
+			{
+				Flag:        "--compact",
+				ShortFlag:   "-c",
+				Description: "Use compact single-line format instead of multi-line",
+				Example:     "wt recent --compact",
 			},
 		},
 		SeeAlso: []string{"wt list", "wt go", "wt new"},
