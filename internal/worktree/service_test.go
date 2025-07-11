@@ -82,6 +82,7 @@ func (m *MockGitClient) ForEachRef(format string, options ...string) (string, er
 	return "", nil
 }
 func (m *MockGitClient) GetConfigValue(key string) (string, error) { return "", nil }
+func (m *MockGitClient) Checkout(branch string) error              { return nil }
 
 // MockFilesystem is a mock implementation of filesystem.Filesystem
 type MockFilesystem struct {

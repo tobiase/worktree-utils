@@ -28,3 +28,9 @@ func TestCommandClient_GetConfigValue(t *testing.T) {
 	// In a real implementation, we would use a test git repository
 	t.Skip("Skipping test that requires git repository")
 }
+
+func TestCommandClient_Checkout(t *testing.T) {
+	// This test requires a real git repository
+	// In a real implementation, we would use a test git repository
+	t.Skip("Skipping test that requires git repository")
+}

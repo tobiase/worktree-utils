@@ -46,4 +46,7 @@ type Client interface {
 
 	// GetConfigValue returns a git config value for the given key
 	GetConfigValue(key string) (string, error)
+
+	// Checkout switches to the specified branch
+	Checkout(branch string) error
 }

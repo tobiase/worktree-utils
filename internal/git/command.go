@@ -192,3 +192,12 @@ func (c *CommandClient) GetConfigValue(key string) (string, error) {
 	}
 	return strings.TrimSpace(string(output)), nil
 }
+
+// Checkout switches to the specified branch
+func (c *CommandClient) Checkout(branch string) error {
+	_, err := c.runCommand("checkout", branch)
+	if err != nil {
+		return fmt.Errorf("failed to checkout branch %s: %v", branch, err)
+	}
+	return nil
+}
