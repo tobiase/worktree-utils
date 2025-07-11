@@ -182,11 +182,21 @@ func (c *CommandClient) ForEachRef(format string, options ...string) (string, er
 
 // GetConfigValue returns a git config value for the given key
 func (c *CommandClient) GetConfigValue(key string) (string, error) {
-	output, err := c.runCommand("config", "--get", key)
+	cmd := exec.Command("git", "config", "--get", key)
+	if c.workDir != "" {
+		cmd.Dir = c.workDir
+	}
+
+	output, err := cmd.Output()
 	if err != nil {
-		// Git returns exit code 1 when the key doesn't exist
-		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-			return "", nil // Return empty string for non-existent keys
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			// Git returns exit code 1 when the key doesn't exist
+			if exitErr.ExitCode() == 1 && len(exitErr.Stderr) == 0 {
+				// This is a missing key (git config returns exit 1 with empty stderr)
+				return "", nil
+			}
+			// Other error with stderr
+			return "", fmt.Errorf("failed to get config value for %s: %v\nstderr: %s", key, err, string(exitErr.Stderr))
 		}
 		return "", fmt.Errorf("failed to get config value for %s: %v", key, err)
 	}

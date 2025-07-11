@@ -28,6 +28,24 @@ type MockGitClient struct {
 
 	// GetRemoteURL mock
 	GetRemoteURLFunc func(remote string) (string, error)
+
+	// BranchList mock
+	BranchListFunc func() ([]string, error)
+
+	// GetCurrentBranch mock
+	GetCurrentBranchFunc func() (string, error)
+
+	// ForEachRef mock
+	ForEachRefFunc func(format string, options ...string) (string, error)
+
+	// GetConfigValue mock
+	GetConfigValueFunc func(key string) (string, error)
+
+	// Checkout mock
+	CheckoutFunc func(branch string) error
+
+	// GetLastNonMergeCommit mock
+	GetLastNonMergeCommitFunc func(branch string, format string) (string, error)
 }
 
 func (m *MockGitClient) RevParse(args ...string) (string, error) {
@@ -72,18 +90,50 @@ func (m *MockGitClient) GetRemoteURL(remote string) (string, error) {
 	return "", nil
 }
 
-// Implement remaining interface methods with default behavior
-func (m *MockGitClient) BranchList() ([]string, error)                        { return nil, nil }
-func (m *MockGitClient) GetCurrentBranch() (string, error)                    { return "", nil }
+// Implement remaining interface methods with mock behavior
+func (m *MockGitClient) BranchList() ([]string, error) {
+	if m.BranchListFunc != nil {
+		return m.BranchListFunc()
+	}
+	return nil, nil
+}
+
+func (m *MockGitClient) GetCurrentBranch() (string, error) {
+	if m.GetCurrentBranchFunc != nil {
+		return m.GetCurrentBranchFunc()
+	}
+	return "", nil
+}
+
 func (m *MockGitClient) Log(format string, options ...string) (string, error) { return "", nil }
 func (m *MockGitClient) Status(options ...string) (string, error)             { return "", nil }
 func (m *MockGitClient) RevList(options ...string) (string, error)            { return "", nil }
+
 func (m *MockGitClient) ForEachRef(format string, options ...string) (string, error) {
+	if m.ForEachRefFunc != nil {
+		return m.ForEachRefFunc(format, options...)
+	}
 	return "", nil
 }
-func (m *MockGitClient) GetConfigValue(key string) (string, error) { return "", nil }
-func (m *MockGitClient) Checkout(branch string) error              { return nil }
+
+func (m *MockGitClient) GetConfigValue(key string) (string, error) {
+	if m.GetConfigValueFunc != nil {
+		return m.GetConfigValueFunc(key)
+	}
+	return "", nil
+}
+
+func (m *MockGitClient) Checkout(branch string) error {
+	if m.CheckoutFunc != nil {
+		return m.CheckoutFunc(branch)
+	}
+	return nil
+}
+
 func (m *MockGitClient) GetLastNonMergeCommit(branch string, format string) (string, error) {
+	if m.GetLastNonMergeCommitFunc != nil {
+		return m.GetLastNonMergeCommitFunc(branch, format)
+	}
 	return "", nil
 }
 
