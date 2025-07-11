@@ -78,6 +78,10 @@ func (m *MockGitClient) GetCurrentBranch() (string, error)                    { 
 func (m *MockGitClient) Log(format string, options ...string) (string, error) { return "", nil }
 func (m *MockGitClient) Status(options ...string) (string, error)             { return "", nil }
 func (m *MockGitClient) RevList(options ...string) (string, error)            { return "", nil }
+func (m *MockGitClient) ForEachRef(format string, options ...string) (string, error) {
+	return "", nil
+}
+func (m *MockGitClient) GetConfigValue(key string) (string, error) { return "", nil }
 
 // MockFilesystem is a mock implementation of filesystem.Filesystem
 type MockFilesystem struct {

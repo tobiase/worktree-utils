@@ -164,3 +164,31 @@ func (c *CommandClient) runCommand(args ...string) ([]byte, error) {
 
 	return output, nil
 }
+
+// ForEachRef returns git for-each-ref output with specified format and options
+func (c *CommandClient) ForEachRef(format string, options ...string) (string, error) {
+	args := []string{"for-each-ref"}
+	if format != "" {
+		args = append(args, "--format="+format)
+	}
+	args = append(args, options...)
+
+	output, err := c.runCommand(args...)
+	if err != nil {
+		return "", fmt.Errorf("failed to run for-each-ref: %v", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// GetConfigValue returns a git config value for the given key
+func (c *CommandClient) GetConfigValue(key string) (string, error) {
+	output, err := c.runCommand("config", "--get", key)
+	if err != nil {
+		// Git returns exit code 1 when the key doesn't exist
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return "", nil // Return empty string for non-existent keys
+		}
+		return "", fmt.Errorf("failed to get config value for %s: %v", key, err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}

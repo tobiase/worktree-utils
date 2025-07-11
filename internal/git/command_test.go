@@ -16,3 +16,15 @@ func TestGitWorktreeListParsing(t *testing.T) {
 	// In real tests, we would have a mock that returns specific output
 	t.Skip("Skipping test - needs mock implementation")
 }
+
+func TestCommandClient_ForEachRef(t *testing.T) {
+	// This test requires a real git repository
+	// In a real implementation, we would use a test git repository
+	t.Skip("Skipping test that requires git repository")
+}
+
+func TestCommandClient_GetConfigValue(t *testing.T) {
+	// This test requires a real git repository
+	// In a real implementation, we would use a test git repository
+	t.Skip("Skipping test that requires git repository")
+}
