@@ -7,9 +7,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/tobiase/worktree-utils/internal/completion"
 	"github.com/tobiase/worktree-utils/internal/config"
+	"github.com/tobiase/worktree-utils/internal/git"
 	"github.com/tobiase/worktree-utils/internal/help"
 	"github.com/tobiase/worktree-utils/internal/interactive"
 	"github.com/tobiase/worktree-utils/internal/setup"
@@ -199,6 +201,8 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 		fmt.Print(shellWrapper)
 	case listCmd:
 		handleListCommand(args)
+	case "recent":
+		handleRecentCommand(args)
 	case "rm":
 		handleRemoveCommand(args)
 	case "go":
@@ -238,6 +242,53 @@ func handleListCommand(args []string) {
 	if err := worktree.List(); err != nil {
 		printErrorAndExit("%v", err)
 	}
+}
+
+func handleRecentCommand(args []string) {
+	if help.HasHelpFlag(args, "recent") {
+		return
+	}
+
+	// Parse flags
+	flags := parseRecentFlags(args)
+
+	// Get git client
+	gitClient := git.NewCommandClient("")
+
+	// Get current user (we need it unless --all is used)
+	var currentUserName string
+	if !flags.showAll {
+		var err error
+		currentUserName, err = gitClient.GetConfigValue("user.name")
+		if err != nil {
+			printErrorAndExit("failed to get user.name: %v", err)
+		}
+		if currentUserName == "" {
+			printErrorAndExit("user.name not configured in git. Run: git config user.name \"Your Name\"")
+		}
+	}
+
+	// Collect branch information
+	branchInfos := collectBranchInfo(gitClient)
+	if len(branchInfos) == 0 {
+		fmt.Println("No branches found")
+		return
+	}
+
+	// Update worktree information
+	updateWorktreeInfo(branchInfos, gitClient)
+
+	// Filter branches based on flags
+	branches := filterBranches(branchInfos, flags, currentUserName)
+
+	// Handle numeric navigation if requested
+	if flags.navigateIndex >= 0 {
+		navigateToBranch(branches, flags.navigateIndex, gitClient)
+		return
+	}
+
+	// Display branches
+	displayBranches(branches, flags.count)
 }
 
 func handleRemoveCommand(args []string) {
@@ -1082,6 +1133,9 @@ Quick access:
 
 Smart commands (with fuzzy branch matching):
   list, ls            List all worktrees
+  recent              Show YOUR recently active branches (default: your branches only)
+                      Navigate directly: 'wt recent 2' → go to your 3rd recent branch
+                      Options: --all, --others, -n <count>
   new <branch>        Smart worktree creation - handles all branch states:
                       • Branch doesn't exist → Create branch + worktree + switch
                       • Branch exists, no worktree → Create worktree + switch
@@ -1284,5 +1338,244 @@ func handleUpdateCommand(args []string) {
 	if release.Body != "" {
 		fmt.Println("\nChanges in this version:")
 		fmt.Println(release.Body)
+	}
+}
+
+// recentFlags holds parsed flags for the recent command
+type recentFlags struct {
+	showOthers    bool
+	showAll       bool
+	count         int
+	navigateIndex int
+}
+
+// parseRecentFlags parses command line flags for the recent command
+func parseRecentFlags(args []string) recentFlags {
+	flags := recentFlags{
+		count:         10,
+		navigateIndex: -1,
+	}
+
+	i := 0
+	for i < len(args) {
+		arg := args[i]
+		switch {
+		case arg == "--others":
+			flags.showOthers = true
+			i++
+		case arg == "--all":
+			flags.showAll = true
+			i++
+		case arg == "-n" && i+1 < len(args):
+			flags.count = parseAndValidateCount(args[i+1])
+			i += 2
+		case strings.HasPrefix(arg, "-n="):
+			countStr := strings.TrimPrefix(arg, "-n=")
+			flags.count = parseAndValidateCount(countStr)
+			i++
+		default:
+			// Check if it's a numeric argument for navigation
+			if idx, err := strconv.Atoi(arg); err == nil && flags.navigateIndex == -1 {
+				flags.navigateIndex = validateNavigationIndex(idx)
+			}
+			i++
+		}
+	}
+
+	// Validate flags
+	if flags.showOthers && flags.showAll {
+		printErrorAndExit("cannot use --others and --all together")
+	}
+
+	return flags
+}
+
+// parseAndValidateCount parses and validates a count value
+func parseAndValidateCount(countStr string) int {
+	n, err := strconv.Atoi(countStr)
+	if err != nil {
+		printErrorAndExit("invalid count value: %s (must be a number)", countStr)
+	}
+	if n <= 0 {
+		printErrorAndExit("count must be positive, got: %d", n)
+	}
+	return n
+}
+
+// validateNavigationIndex validates a navigation index
+func validateNavigationIndex(idx int) int {
+	if idx < 0 {
+		printErrorAndExit("navigation index must be non-negative, got: %d", idx)
+	}
+	return idx
+}
+
+// branchCommitInfo holds information about a branch and its last commit
+type branchCommitInfo struct {
+	branch       string
+	commitHash   string
+	relativeDate string
+	subject      string
+	author       string
+	timestamp    time.Time
+	hasWorktree  bool
+}
+
+// collectBranchInfo collects commit information for all branches
+func collectBranchInfo(gitClient git.Client) []branchCommitInfo {
+	// Get all branches first
+	branchesOutput, err := gitClient.ForEachRef("%(refname:short)", "refs/heads/")
+	if err != nil {
+		printErrorAndExit("failed to get branches: %v", err)
+	}
+
+	if branchesOutput == "" {
+		return nil
+	}
+
+	// Parse branch names
+	branchNames := strings.Split(branchesOutput, "\n")
+	branchInfos := make([]branchCommitInfo, 0, len(branchNames))
+
+	// Format for the commit info - include unix timestamp for sorting
+	commitFormat := "%H|%cr|%s|%an|%ct"
+
+	for _, branch := range branchNames {
+		branch = strings.TrimSpace(branch)
+		if branch == "" {
+			continue
+		}
+
+		// Get last non-merge commit info
+		commitInfo, err := gitClient.GetLastNonMergeCommit(branch, commitFormat)
+		if err != nil {
+			// Skip branches with no non-merge commits or other issues
+			continue
+		}
+
+		if commitInfo == "" {
+			// Branch has no non-merge commits
+			continue
+		}
+
+		// Parse commit info
+		parts := strings.Split(commitInfo, "|")
+		if len(parts) != 5 {
+			continue
+		}
+
+		// Parse unix timestamp
+		unixTime, err := strconv.ParseInt(parts[4], 10, 64)
+		if err != nil {
+			continue
+		}
+
+		branchInfos = append(branchInfos, branchCommitInfo{
+			branch:       branch,
+			commitHash:   parts[0],
+			relativeDate: parts[1],
+			subject:      parts[2],
+			author:       parts[3],
+			timestamp:    time.Unix(unixTime, 0),
+		})
+	}
+
+	// Sort by commit timestamp (most recent first)
+	sort.Slice(branchInfos, func(i, j int) bool {
+		return branchInfos[i].timestamp.After(branchInfos[j].timestamp)
+	})
+
+	return branchInfos
+}
+
+// updateWorktreeInfo updates branch info with worktree status
+func updateWorktreeInfo(branchInfos []branchCommitInfo, gitClient git.Client) {
+	// Get worktree list to check which branches have worktrees
+	worktrees, err := gitClient.WorktreeList()
+	if err != nil {
+		printErrorAndExit("failed to get worktrees: %v", err)
+	}
+
+	// Create a map of branches that have worktrees
+	worktreeBranches := make(map[string]bool)
+	for _, wt := range worktrees {
+		worktreeBranches[wt.Branch] = true
+	}
+
+	// Update hasWorktree field
+	for i := range branchInfos {
+		branchInfos[i].hasWorktree = worktreeBranches[branchInfos[i].branch]
+	}
+}
+
+// filterBranches filters branches based on author and flags
+func filterBranches(branchInfos []branchCommitInfo, flags recentFlags, currentUserName string) []branchCommitInfo {
+	branches := make([]branchCommitInfo, 0, len(branchInfos))
+	for _, bi := range branchInfos {
+		if flags.showAll {
+			// Show all branches
+			branches = append(branches, bi)
+		} else if flags.showOthers {
+			// Show only other users' branches
+			if bi.author != currentUserName {
+				branches = append(branches, bi)
+			}
+		} else {
+			// Default: show only current user's branches
+			if bi.author == currentUserName {
+				branches = append(branches, bi)
+			}
+		}
+	}
+	return branches
+}
+
+// navigateToBranch handles navigation to a specific branch by index
+func navigateToBranch(branches []branchCommitInfo, index int, gitClient git.Client) {
+	if index >= len(branches) {
+		printErrorAndExit("invalid index: %d (only %d branches available)", index, len(branches))
+	}
+
+	targetBranch := branches[index]
+
+	// Check if branch has a worktree
+	if targetBranch.hasWorktree {
+		// Find the worktree path
+		worktrees, err := gitClient.WorktreeList()
+		if err != nil {
+			printErrorAndExit("failed to get worktrees: %v", err)
+		}
+
+		for _, wt := range worktrees {
+			if wt.Branch == targetBranch.branch {
+				fmt.Printf("CD:%s", wt.Path)
+				return
+			}
+		}
+	} else {
+		// No worktree, checkout the branch
+		if err := gitClient.Checkout(targetBranch.branch); err != nil {
+			printErrorAndExit("failed to checkout branch %s: %v", targetBranch.branch, err)
+		}
+		fmt.Printf("Switched to branch '%s'\n", targetBranch.branch)
+	}
+}
+
+// displayBranches shows the list of branches with formatting
+func displayBranches(branches []branchCommitInfo, count int) {
+	displayCount := len(branches)
+	if displayCount > count {
+		displayCount = count
+	}
+
+	for i := 0; i < displayCount; i++ {
+		branch := branches[i]
+		worktreeIndicator := " "
+		if branch.hasWorktree {
+			worktreeIndicator = "*"
+		}
+
+		fmt.Printf("%d: %s%-20s %-15s %-40s %s\n",
+			i, worktreeIndicator, branch.branch, branch.relativeDate, branch.subject, branch.author)
 	}
 }

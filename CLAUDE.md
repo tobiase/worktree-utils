@@ -4,17 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Session Continuity
 
-**IMPORTANT**: Before starting work, check `docs/SESSION_LOG.md` for:
-- Recent work completed
-- Open questions and next steps
-- Design decisions made
+**IMPORTANT**: Before starting work, check the backlog system for context:
+- Use `backlog task list --plain` to see current tasks
+- Check recent completed tasks with `backlog task list -s Done --plain | head -20`
+- Review any in-progress tasks for context
 
-After completing work, update SESSION_LOG.md with:
-- What was accomplished
-- Key decisions and rationale
-- Next steps for future sessions
-
-When adding session log entries, use `date +%Y-%m-%d` to get the current date in YYYY-MM-DD format.
+After completing work:
+- Mark tasks as Done with implementation notes
+- Create new tasks for discovered work
+- Update task dependencies as needed
 
 ## Development Commands
 
@@ -361,23 +359,19 @@ func TestUpdateWithNetworkTimeout(t *testing.T) {
 
 The project maintains comprehensive documentation in the `docs/` directory:
 
-1. **SESSION_LOG.md** - Work completed each session (CHECK THIS FIRST!)
-   - Tracks what was done, decisions made, and next steps
-   - Essential for continuing work between sessions
-
-2. **DESIGN_DECISIONS.md** - Architectural choices and patterns
+1. **DESIGN_DECISIONS.md** - Architectural choices and patterns
    - Documents why certain approaches were chosen
    - Reference when implementing new features
 
-3. **DEVELOPMENT.md** - Development workflow and practices
+2. **DEVELOPMENT.md** - Development workflow and practices
    - How to build, test, and release
    - Code style and conventions
 
-4. **CLI_ERGONOMICS.md** - CLI usability assessment
+3. **CLI_ERGONOMICS.md** - CLI usability assessment
    - Analysis of command structure
    - Improvement ideas and user experience considerations
 
-5. **GIT_COMMANDS.md** - Git command reference
+4. **GIT_COMMANDS.md** - Git command reference
    - Quick reference for git worktree commands
 
 ## Commit Message Guidelines
@@ -528,7 +522,7 @@ if help.HasHelpFlag(args, "commandName") {
 ## Session Continuation Best Practices
 
 ### Essential Pre-Work Checklist
-1. **ALWAYS read `docs/SESSION_LOG.md` first** - Contains recent work and context
+1. **Check backlog system** - Review current and recent tasks
 2. **Check git status** - Understand current state before starting
 3. **Review recent commits** - Understand what was accomplished previously
 4. **Read any TODO lists** - Check for pending tasks
@@ -545,8 +539,9 @@ if help.HasHelpFlag(args, "commandName") {
 git status
 git log --oneline -5
 
-# 2. Read session history
-cat docs/SESSION_LOG.md | head -50
+# 2. Review recent work from backlog
+backlog task list -s Done --plain | head -20
+backlog task list -s "In Progress" --plain
 
 # 3. Check for TODOs or pending work
 rg "TODO|FIXME|XXX" --type go
@@ -591,10 +586,6 @@ Based on repetitive patterns in development sessions, these Claude Code custom c
 
 #### Available Commands
 
-**Session Management:**
-- `/project:session-start` - Comprehensive context recovery from SESSION_LOG.md, git status, and pending work
-- `/project:session-end` - Document completed work and update session logs
-
 **Release & CI:**
 - `/project:release-workflow` - Execute complete push → CI → tag → release → verify workflow
 - `/project:test-ci` - Run comprehensive testing (`make test-ci`, linting, build verification)
@@ -607,9 +598,6 @@ Based on repetitive patterns in development sessions, these Claude Code custom c
 #### Usage Examples
 
 ```bash
-# Start a new development session
-/project:session-start
-
 # Run comprehensive testing before release
 /project:test-ci
 
@@ -618,9 +606,6 @@ Based on repetitive patterns in development sessions, these Claude Code custom c
 
 # Fix pre-commit hook conflicts
 /project:fix-hooks
-
-# End session and document work
-/project:session-end
 ```
 
 These commands eliminate repetitive manual steps and ensure consistent patterns across development sessions. They are implemented as simple Markdown files containing detailed prompts for common workflows.

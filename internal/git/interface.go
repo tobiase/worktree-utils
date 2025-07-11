@@ -40,4 +40,16 @@ type Client interface {
 
 	// RevList returns git rev-list output
 	RevList(options ...string) (string, error)
+
+	// ForEachRef returns git for-each-ref output with specified format and options
+	ForEachRef(format string, options ...string) (string, error)
+
+	// GetConfigValue returns a git config value for the given key
+	GetConfigValue(key string) (string, error)
+
+	// Checkout switches to the specified branch
+	Checkout(branch string) error
+
+	// GetLastNonMergeCommit returns info about the last non-merge commit on a branch
+	GetLastNonMergeCommit(branch string, format string) (string, error)
 }

@@ -16,6 +16,24 @@ func runGitCommand(dir string, args ...string) error {
 	return cmd.Run()
 }
 
+// InitTestRepoWithMain initializes a git repository ensuring main is the default branch
+func InitTestRepoWithMain(t *testing.T, dir string) {
+	t.Helper()
+
+	// Try to init with main as initial branch (git 2.28+)
+	cmd := exec.Command("git", "init", "--initial-branch=main")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "LANG=C")
+	if err := cmd.Run(); err != nil {
+		// Fallback for older git versions
+		if err := runGitCommand(dir, "init"); err != nil {
+			t.Fatalf("Failed to init git repo: %v", err)
+		}
+		// Set default branch config for consistency
+		_ = runGitCommand(dir, "config", "init.defaultBranch", "main")
+	}
+}
+
 // CreateTestRepo creates a temporary git repository for testing
 func CreateTestRepo(t *testing.T) (repoPath string, cleanup func()) {
 	t.Helper()
@@ -26,11 +44,8 @@ func CreateTestRepo(t *testing.T) (repoPath string, cleanup func()) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	// Initialize git repo
-	if err := runGitCommand(tempDir, "init"); err != nil {
-		os.RemoveAll(tempDir)
-		t.Fatalf("Failed to init git repo: %v", err)
-	}
+	// Initialize git repo with main as default branch
+	InitTestRepoWithMain(t, tempDir)
 
 	// Configure git user for commits
 	if err := runGitCommand(tempDir, "config", "user.name", "Test User"); err != nil {
@@ -108,9 +123,18 @@ func CreateBareRepo(t *testing.T) (repoPath string, cleanup func()) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	if err := runGitCommand(tempDir, "init", "--bare"); err != nil {
-		os.RemoveAll(tempDir)
-		t.Fatalf("Failed to init bare repo: %v", err)
+	// Try to init bare repo with main as initial branch (git 2.28+)
+	cmd := exec.Command("git", "init", "--bare", "--initial-branch=main")
+	cmd.Dir = tempDir
+	cmd.Env = append(os.Environ(), "LANG=C")
+	if err := cmd.Run(); err != nil {
+		// Fallback for older git versions
+		if err := runGitCommand(tempDir, "init", "--bare"); err != nil {
+			os.RemoveAll(tempDir)
+			t.Fatalf("Failed to init bare repo: %v", err)
+		}
+		// Set default branch config
+		_ = runGitCommand(tempDir, "config", "init.defaultBranch", "main")
 	}
 
 	cleanup = func() {

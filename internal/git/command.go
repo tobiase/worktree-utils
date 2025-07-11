@@ -164,3 +164,69 @@ func (c *CommandClient) runCommand(args ...string) ([]byte, error) {
 
 	return output, nil
 }
+
+// ForEachRef returns git for-each-ref output with specified format and options
+func (c *CommandClient) ForEachRef(format string, options ...string) (string, error) {
+	args := []string{"for-each-ref"}
+	if format != "" {
+		args = append(args, "--format="+format)
+	}
+	args = append(args, options...)
+
+	output, err := c.runCommand(args...)
+	if err != nil {
+		return "", fmt.Errorf("failed to run for-each-ref: %v", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// GetConfigValue returns a git config value for the given key
+func (c *CommandClient) GetConfigValue(key string) (string, error) {
+	cmd := exec.Command("git", "config", "--get", key)
+	if c.workDir != "" {
+		cmd.Dir = c.workDir
+	}
+
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			// Git returns exit code 1 when the key doesn't exist
+			if exitErr.ExitCode() == 1 && len(exitErr.Stderr) == 0 {
+				// This is a missing key (git config returns exit 1 with empty stderr)
+				return "", nil
+			}
+			// Other error with stderr
+			return "", fmt.Errorf("failed to get config value for %s: %v\nstderr: %s", key, err, string(exitErr.Stderr))
+		}
+		return "", fmt.Errorf("failed to get config value for %s: %v", key, err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// Checkout switches to the specified branch
+func (c *CommandClient) Checkout(branch string) error {
+	_, err := c.runCommand("checkout", branch)
+	if err != nil {
+		return fmt.Errorf("failed to checkout branch %s: %v", branch, err)
+	}
+	return nil
+}
+
+// GetLastNonMergeCommit returns info about the last non-merge commit on a branch
+func (c *CommandClient) GetLastNonMergeCommit(branch string, format string) (string, error) {
+	// Use git log to find the last non-merge commit
+	// --no-merges excludes merge commits
+	// -n 1 gets only the most recent commit
+	args := []string{"log", "--no-merges", "-n", "1"}
+	if format != "" {
+		args = append(args, "--format="+format)
+	}
+	args = append(args, branch)
+
+	output, err := c.runCommand(args...)
+	if err != nil {
+		// Branch might not exist or have no non-merge commits
+		return "", fmt.Errorf("failed to get last non-merge commit for branch %s: %v", branch, err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
