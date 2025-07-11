@@ -182,6 +182,18 @@ func getCoreCommands() []Command {
 			Flags:       []Flag{},
 			Args:        []Argument{},
 		},
+		{
+			Name:        "recent",
+			Description: "Show and navigate to recently active branches",
+			Flags: []Flag{
+				{Name: "--me", Description: "Show only my branches", HasValue: false},
+				{Name: "--others", Description: "Show only other users' branches", HasValue: false},
+				{Name: "-n", Description: "Number of branches to show", HasValue: true},
+			},
+			Args: []Argument{
+				{Name: "index", Description: "Branch index to navigate to (optional)", Type: ArgString},
+			},
+		},
 	}
 }
 
