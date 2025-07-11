@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -704,6 +706,155 @@ func TestRecentCommandPerformance(t *testing.T) {
 		// Should return all branches
 		if len(result) != 500 {
 			t.Errorf("Expected all 500 branches with --all flag, got %d", len(result))
+		}
+	})
+}
+
+// TestTruncateWithEllipsis tests the string truncation helper
+func TestTruncateWithEllipsis(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		maxLen   int
+		expected string
+	}{
+		{
+			name:     "short string not truncated",
+			input:    "main",
+			maxLen:   10,
+			expected: "main",
+		},
+		{
+			name:     "exact length not truncated",
+			input:    "feature/123",
+			maxLen:   11,
+			expected: "feature/123",
+		},
+		{
+			name:     "long string truncated with ellipsis",
+			input:    "feature/very-long-branch-name-that-exceeds-limit",
+			maxLen:   20,
+			expected: "feature/very-long...",
+		},
+		{
+			name:     "very short max length",
+			input:    "feature",
+			maxLen:   3,
+			expected: "fea",
+		},
+		{
+			name:     "max length 1",
+			input:    "feature",
+			maxLen:   1,
+			expected: "f",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			maxLen:   10,
+			expected: "",
+		},
+		{
+			name:     "unicode string truncation",
+			input:    "feature/üñíçødé-branch-name",
+			maxLen:   15,
+			expected: "feature/üñíç...",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := truncateWithEllipsis(tt.input, tt.maxLen)
+			if result != tt.expected {
+				t.Errorf("truncateWithEllipsis(%q, %d) = %q, want %q",
+					tt.input, tt.maxLen, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestDisplayBranchesFormatting tests the dynamic width calculation
+func TestDisplayBranchesFormatting(t *testing.T) {
+	t.Run("branches with varying lengths", func(t *testing.T) {
+		branches := []branchCommitInfo{
+			{
+				branch:       "main",
+				commitHash:   "abc123",
+				relativeDate: "2 hours ago",
+				subject:      "Initial commit",
+				author:       "John Doe",
+				timestamp:    time.Now().Add(-2 * time.Hour),
+				hasWorktree:  true,
+			},
+			{
+				branch:       "feature/very-very-very-long-branch-name-that-should-be-truncated",
+				commitHash:   "def456",
+				relativeDate: "1 day ago",
+				subject:      "This is a very long commit message that should also be truncated to fit nicely",
+				author:       "Jane Smith",
+				timestamp:    time.Now().Add(-24 * time.Hour),
+				hasWorktree:  false,
+			},
+			{
+				branch:       "fix/short",
+				commitHash:   "ghi789",
+				relativeDate: "3 weeks ago",
+				subject:      "Fix bug",
+				author:       "Bob Wilson",
+				timestamp:    time.Now().Add(-504 * time.Hour),
+				hasWorktree:  true,
+			},
+		}
+
+		// Capture output
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		displayBranches(branches, 10)
+
+		w.Close()
+		output, _ := io.ReadAll(r)
+		os.Stdout = oldStdout
+
+		outputStr := string(output)
+		lines := strings.Split(strings.TrimSpace(outputStr), "\n")
+
+		// Check that we have 3 lines of output
+		if len(lines) != 3 {
+			t.Errorf("Expected 3 lines of output, got %d", len(lines))
+		}
+
+		// Check that long branch name is truncated
+		if !strings.Contains(lines[1], "...") {
+			t.Error("Expected long branch name to be truncated with ellipsis")
+		}
+
+		// Check that alignment is maintained (all lines should have similar structure)
+		for i, line := range lines {
+			if !strings.HasPrefix(line, fmt.Sprintf("%d:", i)) {
+				t.Errorf("Line %d doesn't start with correct index", i)
+			}
+		}
+	})
+
+	t.Run("empty branch list", func(t *testing.T) {
+		var branches []branchCommitInfo
+
+		// Capture output
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		displayBranches(branches, 10)
+
+		w.Close()
+		output, _ := io.ReadAll(r)
+		os.Stdout = oldStdout
+
+		// Should produce no output
+		if len(output) != 0 {
+			t.Errorf("Expected no output for empty branch list, got: %s", string(output))
 		}
 	})
 }

@@ -1610,6 +1610,51 @@ func displayBranches(branches []branchCommitInfo, count int) {
 		displayCount = count
 	}
 
+	if displayCount == 0 {
+		return
+	}
+
+	// Calculate dynamic column widths based on actual content
+	maxBranchLen := 15  // minimum width
+	maxDateLen := 10    // minimum width
+	maxSubjectLen := 30 // minimum width
+
+	// Find the maximum length for each column
+	for i := 0; i < displayCount; i++ {
+		branch := branches[i]
+		branchRuneLen := len([]rune(branch.branch))
+		dateRuneLen := len([]rune(branch.relativeDate))
+		subjectRuneLen := len([]rune(branch.subject))
+
+		if branchRuneLen > maxBranchLen {
+			maxBranchLen = branchRuneLen
+		}
+		if dateRuneLen > maxDateLen {
+			maxDateLen = dateRuneLen
+		}
+		if subjectRuneLen > maxSubjectLen {
+			maxSubjectLen = subjectRuneLen
+		}
+	}
+
+	// Set reasonable maximum widths to prevent overly wide columns
+	const (
+		maxBranchWidth  = 40
+		maxSubjectWidth = 50
+		maxDateWidth    = 20
+	)
+
+	if maxBranchLen > maxBranchWidth {
+		maxBranchLen = maxBranchWidth
+	}
+	if maxSubjectLen > maxSubjectWidth {
+		maxSubjectLen = maxSubjectWidth
+	}
+	if maxDateLen > maxDateWidth {
+		maxDateLen = maxDateWidth
+	}
+
+	// Display branches with dynamic formatting
 	for i := 0; i < displayCount; i++ {
 		branch := branches[i]
 		worktreeIndicator := " "
@@ -1617,9 +1662,30 @@ func displayBranches(branches []branchCommitInfo, count int) {
 			worktreeIndicator = "*"
 		}
 
-		fmt.Printf("%d: %s%-20s %-15s %-40s %s\n",
-			i, worktreeIndicator, branch.branch, branch.relativeDate, branch.subject, branch.author)
+		// Truncate fields if they exceed maximum width
+		branchName := truncateWithEllipsis(branch.branch, maxBranchLen)
+		subject := truncateWithEllipsis(branch.subject, maxSubjectLen)
+		date := truncateWithEllipsis(branch.relativeDate, maxDateLen)
+
+		fmt.Printf("%d: %s%-*s %-*s %-*s %s\n",
+			i, worktreeIndicator,
+			maxBranchLen, branchName,
+			maxDateLen, date,
+			maxSubjectLen, subject,
+			branch.author)
 	}
+}
+
+// truncateWithEllipsis truncates a string to maxLen and adds ellipsis if needed
+func truncateWithEllipsis(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return string(runes[:maxLen])
+	}
+	return string(runes[:maxLen-3]) + "..."
 }
 
 // displayNoBranchesMessage shows appropriate message when no branches are found
