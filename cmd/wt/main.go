@@ -248,12 +248,11 @@ func handleRecentCommand(args []string) {
 		return
 	}
 
-	// TODO: Add numeric navigation in task-4
-
-	// Parse flags
+	// Parse flags and check for numeric navigation
 	var showMe, showOthers bool
 	var count = 10 // default
 	var currentUserName string
+	var navigateIndex = -1
 
 	i := 0
 	for i < len(args) {
@@ -273,7 +272,10 @@ func handleRecentCommand(args []string) {
 			count = n
 			i += 2
 		default:
-			// Unknown argument - might be for numeric navigation later
+			// Check if it's a numeric argument for navigation
+			if idx, err := strconv.Atoi(arg); err == nil && navigateIndex == -1 {
+				navigateIndex = idx
+			}
 			i++
 		}
 	}
@@ -323,9 +325,17 @@ func handleRecentCommand(args []string) {
 		worktreeBranches[wt.Branch] = true
 	}
 
-	// Parse and display branches
+	// Parse branches
 	lines := strings.Split(output, "\n")
-	displayIndex := 0
+	type branchInfo struct {
+		name         string
+		relativeDate string
+		subject      string
+		author       string
+		hasWorktree  bool
+	}
+	branches := make([]branchInfo, 0, len(lines))
+
 	for _, line := range lines {
 		if line == "" {
 			continue
@@ -349,16 +359,51 @@ func handleRecentCommand(args []string) {
 			continue
 		}
 
-		// Check if branch has worktree
+		branches = append(branches, branchInfo{
+			name:         branch,
+			relativeDate: relativeDate,
+			subject:      subject,
+			author:       author,
+			hasWorktree:  worktreeBranches[branch],
+		})
+	}
+
+	// Handle numeric navigation
+	if navigateIndex >= 0 {
+		if navigateIndex >= len(branches) {
+			printErrorAndExit("invalid index: %d (only %d branches available)", navigateIndex, len(branches))
+		}
+
+		targetBranch := branches[navigateIndex]
+
+		// Check if branch has a worktree
+		if targetBranch.hasWorktree {
+			// Find the worktree path
+			for _, wt := range worktrees {
+				if wt.Branch == targetBranch.name {
+					fmt.Printf("CD:%s", wt.Path)
+					return
+				}
+			}
+		} else {
+			// No worktree, checkout the branch
+			if err := gitClient.Checkout(targetBranch.name); err != nil {
+				printErrorAndExit("failed to checkout branch %s: %v", targetBranch.name, err)
+			}
+			fmt.Printf("Switched to branch '%s'\n", targetBranch.name)
+		}
+		return
+	}
+
+	// Display branches
+	for i, branch := range branches {
 		worktreeIndicator := " "
-		if worktreeBranches[branch] {
+		if branch.hasWorktree {
 			worktreeIndicator = "*"
 		}
 
-		// Format similar to wt list
 		fmt.Printf("%d: %s%-20s %-15s %-40s %s\n",
-			displayIndex, worktreeIndicator, branch, relativeDate, subject, author)
-		displayIndex++
+			i, worktreeIndicator, branch.name, branch.relativeDate, branch.subject, branch.author)
 	}
 }
 
