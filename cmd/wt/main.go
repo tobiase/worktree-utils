@@ -248,16 +248,60 @@ func handleRecentCommand(args []string) {
 		return
 	}
 
-	// For now, just implement basic functionality
-	// TODO: Add flags support in task-3
 	// TODO: Add numeric navigation in task-4
+
+	// Parse flags
+	var showMe, showOthers bool
+	var count = 10 // default
+	var currentUserName string
+
+	i := 0
+	for i < len(args) {
+		arg := args[i]
+		switch {
+		case arg == "--me":
+			showMe = true
+			i++
+		case arg == "--others":
+			showOthers = true
+			i++
+		case arg == "-n" && i+1 < len(args):
+			n, err := strconv.Atoi(args[i+1])
+			if err != nil || n <= 0 {
+				printErrorAndExit("invalid count value: %s", args[i+1])
+			}
+			count = n
+			i += 2
+		default:
+			// Unknown argument - might be for numeric navigation later
+			i++
+		}
+	}
+
+	// Validate flags
+	if showMe && showOthers {
+		printErrorAndExit("cannot use --me and --others together")
+	}
 
 	// Get git client
 	gitClient := git.NewCommandClient("")
 
+	// Get current user if filtering by author
+	if showMe || showOthers {
+		var err error
+		currentUserName, err = gitClient.GetConfigValue("user.name")
+		if err != nil {
+			printErrorAndExit("failed to get user.name: %v", err)
+		}
+		if currentUserName == "" {
+			printErrorAndExit("user.name not configured in git")
+		}
+	}
+
 	// Get branches sorted by committer date
 	format := "%(refname:short)|%(committerdate:relative)|%(subject)|%(authorname)"
-	output, err := gitClient.ForEachRef(format, "--sort=-committerdate", "refs/heads/", "--count=10")
+	countStr := fmt.Sprintf("--count=%d", count)
+	output, err := gitClient.ForEachRef(format, "--sort=-committerdate", "refs/heads/", countStr)
 	if err != nil {
 		printErrorAndExit("failed to get recent branches: %v", err)
 	}
@@ -281,7 +325,8 @@ func handleRecentCommand(args []string) {
 
 	// Parse and display branches
 	lines := strings.Split(output, "\n")
-	for i, line := range lines {
+	displayIndex := 0
+	for _, line := range lines {
 		if line == "" {
 			continue
 		}
@@ -296,6 +341,14 @@ func handleRecentCommand(args []string) {
 		subject := parts[2]
 		author := parts[3]
 
+		// Filter by author if requested
+		if showMe && author != currentUserName {
+			continue
+		}
+		if showOthers && author == currentUserName {
+			continue
+		}
+
 		// Check if branch has worktree
 		worktreeIndicator := " "
 		if worktreeBranches[branch] {
@@ -304,7 +357,8 @@ func handleRecentCommand(args []string) {
 
 		// Format similar to wt list
 		fmt.Printf("%d: %s%-20s %-15s %-40s %s\n",
-			i, worktreeIndicator, branch, relativeDate, subject, author)
+			displayIndex, worktreeIndicator, branch, relativeDate, subject, author)
+		displayIndex++
 	}
 }
 
