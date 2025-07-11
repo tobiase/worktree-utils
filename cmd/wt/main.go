@@ -264,7 +264,7 @@ func handleRecentCommand(args []string) {
 			printErrorAndExit("failed to get user.name: %v", err)
 		}
 		if currentUserName == "" {
-			printErrorAndExit("user.name not configured in git")
+			printErrorAndExit("user.name not configured in git. Run: git config user.name \"Your Name\"")
 		}
 	}
 
@@ -1367,16 +1367,16 @@ func parseRecentFlags(args []string) recentFlags {
 			flags.showAll = true
 			i++
 		case arg == "-n" && i+1 < len(args):
-			n, err := strconv.Atoi(args[i+1])
-			if err != nil || n <= 0 {
-				printErrorAndExit("invalid count value: %s", args[i+1])
-			}
-			flags.count = n
+			flags.count = parseAndValidateCount(args[i+1])
 			i += 2
+		case strings.HasPrefix(arg, "-n="):
+			countStr := strings.TrimPrefix(arg, "-n=")
+			flags.count = parseAndValidateCount(countStr)
+			i++
 		default:
 			// Check if it's a numeric argument for navigation
 			if idx, err := strconv.Atoi(arg); err == nil && flags.navigateIndex == -1 {
-				flags.navigateIndex = idx
+				flags.navigateIndex = validateNavigationIndex(idx)
 			}
 			i++
 		}
@@ -1388,6 +1388,26 @@ func parseRecentFlags(args []string) recentFlags {
 	}
 
 	return flags
+}
+
+// parseAndValidateCount parses and validates a count value
+func parseAndValidateCount(countStr string) int {
+	n, err := strconv.Atoi(countStr)
+	if err != nil {
+		printErrorAndExit("invalid count value: %s (must be a number)", countStr)
+	}
+	if n <= 0 {
+		printErrorAndExit("count must be positive, got: %d", n)
+	}
+	return n
+}
+
+// validateNavigationIndex validates a navigation index
+func validateNavigationIndex(idx int) int {
+	if idx < 0 {
+		printErrorAndExit("navigation index must be non-negative, got: %d", idx)
+	}
+	return idx
 }
 
 // branchCommitInfo holds information about a branch and its last commit
