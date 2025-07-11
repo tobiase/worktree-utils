@@ -19,3 +19,5 @@ The manual flag parsing in handleRecentCommand and other commands works but coul
 - [ ] Handle edge cases like flags after positional args
 - [ ] Improve error messages for invalid flag usage
 - [ ] Apply to all commands for consistency
+- [ ] Return errors from parseRecentFlags instead of calling printErrorAndExit
+- [ ] Validate mutually exclusive flag combinations explicitly
