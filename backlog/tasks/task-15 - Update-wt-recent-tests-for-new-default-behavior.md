@@ -1,9 +1,10 @@
 ---
 id: task-15
 title: Update wt recent tests for new default behavior
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2025-07-11'
+updated_date: '2025-07-11'
 labels: []
 dependencies:
   - task-13
