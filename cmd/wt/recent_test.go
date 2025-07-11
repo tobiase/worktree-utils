@@ -70,6 +70,7 @@ func TestParseRecentFlags(t *testing.T) {
 		wantCount    int
 		wantNavigate int
 		wantVerbose  bool
+		wantCompact  bool
 		wantError    bool
 	}{
 		{
@@ -164,6 +165,28 @@ func TestParseRecentFlags(t *testing.T) {
 			wantCount:    15,
 			wantNavigate: -1,
 		},
+		{
+			name:         "compact flag long form",
+			args:         []string{"--compact"},
+			wantCompact:  true,
+			wantCount:    10,
+			wantNavigate: -1,
+		},
+		{
+			name:         "compact flag short form",
+			args:         []string{"-c"},
+			wantCompact:  true,
+			wantCount:    10,
+			wantNavigate: -1,
+		},
+		{
+			name:         "compact with other flags",
+			args:         []string{"--all", "-c", "-n", "5"},
+			wantAll:      true,
+			wantCompact:  true,
+			wantCount:    5,
+			wantNavigate: -1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -195,6 +218,10 @@ func TestParseRecentFlags(t *testing.T) {
 
 			if flags.verbose != tt.wantVerbose {
 				t.Errorf("verbose flag: got %v, want %v", flags.verbose, tt.wantVerbose)
+			}
+
+			if flags.compact != tt.wantCompact {
+				t.Errorf("compact flag: got %v, want %v", flags.compact, tt.wantCompact)
 			}
 		})
 	}
@@ -773,8 +800,73 @@ func TestTruncateWithEllipsis(t *testing.T) {
 	}
 }
 
-// TestDisplayBranchesFormatting tests the dynamic width calculation
-func TestDisplayBranchesFormatting(t *testing.T) {
+// TestDisplayBranchesMultiline tests the multi-line display format
+func TestDisplayBranchesMultiline(t *testing.T) {
+	t.Run("multi-line format", func(t *testing.T) {
+		branches := []branchCommitInfo{
+			{
+				branch:       "feature/very-long-branch-name-with-issue-123",
+				commitHash:   "abc123",
+				relativeDate: "2 hours ago",
+				subject:      "Implement the new feature for handling long branch names",
+				author:       "Tobias Engelhardt",
+				timestamp:    time.Now().Add(-2 * time.Hour),
+				hasWorktree:  true,
+			},
+			{
+				branch:       "fix/issue-456",
+				commitHash:   "def456",
+				relativeDate: "1 day ago",
+				subject:      "Fix critical bug in authentication",
+				author:       "Jane Smith",
+				timestamp:    time.Now().Add(-24 * time.Hour),
+				hasWorktree:  false,
+			},
+		}
+
+		// Capture output
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		displayBranches(branches, 10)
+
+		w.Close()
+		output, _ := io.ReadAll(r)
+		os.Stdout = oldStdout
+
+		outputStr := string(output)
+		lines := strings.Split(strings.TrimSpace(outputStr), "\n")
+
+		// Check that we have correct number of lines
+		// 2 branches * 3 lines each + 1 blank line between = 7 lines
+		if len(lines) != 7 {
+			t.Errorf("Expected 7 lines of output, got %d", len(lines))
+			t.Logf("Output:\n%s", outputStr)
+		}
+
+		// Check first branch format
+		if !strings.HasPrefix(lines[0], "0:* feature/very-long-branch-name-with-issue-123") {
+			t.Errorf("First line doesn't match expected format: %s", lines[0])
+		}
+
+		// Check indentation on second and third lines
+		if !strings.HasPrefix(lines[1], "   ") {
+			t.Error("Second line should be indented")
+		}
+		if !strings.HasPrefix(lines[2], "   ") {
+			t.Error("Third line should be indented")
+		}
+
+		// Check that there's a blank line
+		if lines[3] != "" {
+			t.Error("Expected blank line between entries")
+		}
+	})
+}
+
+// TestDisplayBranchesCompactFormatting tests the compact format
+func TestDisplayBranchesCompactFormatting(t *testing.T) {
 	t.Run("branches with varying lengths", func(t *testing.T) {
 		branches := []branchCommitInfo{
 			{
@@ -811,7 +903,7 @@ func TestDisplayBranchesFormatting(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		displayBranches(branches, 10)
+		displayBranchesCompact(branches, 10)
 
 		w.Close()
 		output, _ := io.ReadAll(r)
@@ -846,7 +938,7 @@ func TestDisplayBranchesFormatting(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		displayBranches(branches, 10)
+		displayBranchesCompact(branches, 10)
 
 		w.Close()
 		output, _ := io.ReadAll(r)

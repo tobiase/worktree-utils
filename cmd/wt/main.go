@@ -288,7 +288,11 @@ func handleRecentCommand(args []string) {
 	}
 
 	// Display branches
-	displayBranches(branches, flags.count)
+	if flags.compact {
+		displayBranchesCompact(branches, flags.count)
+	} else {
+		displayBranches(branches, flags.count)
+	}
 
 	// Display summary of skipped branches if verbose mode is enabled
 	displaySkippedBranchesIfVerbose(branchResult.skipped, flags.verbose)
@@ -1138,7 +1142,8 @@ Smart commands (with fuzzy branch matching):
   list, ls            List all worktrees
   recent              Show YOUR recently active branches (default: your branches only)
                       Navigate directly: 'wt recent 2' → go to your 3rd recent branch
-                      Options: --all, --others, -n <count>
+                      Default: multi-line format for better readability
+                      Options: --all, --others, -n <count>, --compact, --verbose
   new <branch>        Smart worktree creation - handles all branch states:
                       • Branch doesn't exist → Create branch + worktree + switch
                       • Branch exists, no worktree → Create worktree + switch
@@ -1351,6 +1356,7 @@ type recentFlags struct {
 	count         int
 	navigateIndex int
 	verbose       bool
+	compact       bool
 }
 
 // parseRecentFlags parses command line flags for the recent command
@@ -1372,6 +1378,9 @@ func parseRecentFlags(args []string) recentFlags {
 			i++
 		case arg == "--verbose" || arg == "-v":
 			flags.verbose = true
+			i++
+		case arg == "--compact" || arg == "-c":
+			flags.compact = true
 			i++
 		case arg == "-n" && i+1 < len(args):
 			flags.count = parseAndValidateCount(args[i+1])
@@ -1603,8 +1612,42 @@ func navigateToBranch(branches []branchCommitInfo, index int, gitClient git.Clie
 	}
 }
 
-// displayBranches shows the list of branches with formatting
+// displayBranches shows the list of branches in multi-line format (default)
 func displayBranches(branches []branchCommitInfo, count int) {
+	displayCount := len(branches)
+	if displayCount > count {
+		displayCount = count
+	}
+
+	if displayCount == 0 {
+		return
+	}
+
+	for i := 0; i < displayCount; i++ {
+		branch := branches[i]
+		worktreeIndicator := " "
+		if branch.hasWorktree {
+			worktreeIndicator = "*"
+		}
+
+		// First line: index, worktree indicator, and full branch name
+		fmt.Printf("%d:%s %s\n", i, worktreeIndicator, branch.branch)
+
+		// Second line: commit subject (indented)
+		fmt.Printf("   %s\n", branch.subject)
+
+		// Third line: author and date (indented)
+		fmt.Printf("   %s, %s\n", branch.author, branch.relativeDate)
+
+		// Add blank line between entries for readability
+		if i < displayCount-1 {
+			fmt.Println()
+		}
+	}
+}
+
+// displayBranchesCompact shows the list of branches in compact single-line format
+func displayBranchesCompact(branches []branchCommitInfo, count int) {
 	displayCount := len(branches)
 	if displayCount > count {
 		displayCount = count
