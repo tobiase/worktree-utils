@@ -201,3 +201,22 @@ func (c *CommandClient) Checkout(branch string) error {
 	}
 	return nil
 }
+
+// GetLastNonMergeCommit returns info about the last non-merge commit on a branch
+func (c *CommandClient) GetLastNonMergeCommit(branch string, format string) (string, error) {
+	// Use git log to find the last non-merge commit
+	// --no-merges excludes merge commits
+	// -n 1 gets only the most recent commit
+	args := []string{"log", "--no-merges", "-n", "1"}
+	if format != "" {
+		args = append(args, "--format="+format)
+	}
+	args = append(args, branch)
+
+	output, err := c.runCommand(args...)
+	if err != nil {
+		// Branch might not exist or have no non-merge commits
+		return "", fmt.Errorf("failed to get last non-merge commit for branch %s: %v", branch, err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}

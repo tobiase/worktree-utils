@@ -49,4 +49,7 @@ type Client interface {
 
 	// Checkout switches to the specified branch
 	Checkout(branch string) error
+
+	// GetLastNonMergeCommit returns info about the last non-merge commit on a branch
+	GetLastNonMergeCommit(branch string, format string) (string, error)
 }

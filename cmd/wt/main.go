@@ -301,8 +301,19 @@ func handleRecentCommand(args []string) {
 	}
 
 	// Get branches sorted by committer date
+	// When filtering by author, fetch more branches to ensure we get enough after filtering
 	format := "%(refname:short)|%(committerdate:relative)|%(subject)|%(authorname)"
-	countStr := fmt.Sprintf("--count=%d", count)
+	fetchCount := count
+	if showMe || showOthers {
+		// Fetch many more branches when filtering to ensure we have enough after filtering
+		// We can't know how many branches belong to each author, so we fetch a large number
+		fetchCount = count * 10
+		if fetchCount < 100 {
+			fetchCount = 100 // Minimum of 100 when filtering
+		}
+	}
+
+	countStr := fmt.Sprintf("--count=%d", fetchCount)
 	output, err := gitClient.ForEachRef(format, "--sort=-committerdate", "refs/heads/", countStr)
 	if err != nil {
 		printErrorAndExit("failed to get recent branches: %v", err)
@@ -395,8 +406,14 @@ func handleRecentCommand(args []string) {
 		return
 	}
 
-	// Display branches
-	for i, branch := range branches {
+	// Display branches (limit to requested count after filtering)
+	displayCount := len(branches)
+	if displayCount > count {
+		displayCount = count
+	}
+
+	for i := 0; i < displayCount; i++ {
+		branch := branches[i]
 		worktreeIndicator := " "
 		if branch.hasWorktree {
 			worktreeIndicator = "*"
