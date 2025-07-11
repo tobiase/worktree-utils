@@ -1625,21 +1625,21 @@ func displayBranches(branches []branchCommitInfo, count int) {
 
 	for i := 0; i < displayCount; i++ {
 		branch := branches[i]
-		worktreeIndicator := " "
+
+		// First line: index with proper spacing, then branch name with star
 		if branch.hasWorktree {
-			worktreeIndicator = "*"
+			fmt.Printf("%d: *%s\n", i, branch.branch)
+		} else {
+			fmt.Printf("%d: %s\n", i, branch.branch)
 		}
 
-		// First line: index, worktree indicator, and full branch name
-		fmt.Printf("%d:%s %s\n", i, worktreeIndicator, branch.branch)
-
-		// Second line: commit subject (indented)
+		// Second line: commit subject (indented to align with branch name)
 		fmt.Printf("   %s\n", branch.subject)
 
-		// Third line: author and date (indented)
+		// Third line: author and date (indented to align with branch name)
 		fmt.Printf("   %s, %s\n", branch.author, branch.relativeDate)
 
-		// Add blank line between entries for readability
+		// Add blank line between entries (but not after the last one)
 		if i < displayCount-1 {
 			fmt.Println()
 		}

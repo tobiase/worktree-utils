@@ -846,7 +846,7 @@ func TestDisplayBranchesMultiline(t *testing.T) {
 		}
 
 		// Check first branch format
-		if !strings.HasPrefix(lines[0], "0:* feature/very-long-branch-name-with-issue-123") {
+		if !strings.HasPrefix(lines[0], "0: *feature/very-long-branch-name-with-issue-123") {
 			t.Errorf("First line doesn't match expected format: %s", lines[0])
 		}
 
@@ -858,9 +858,34 @@ func TestDisplayBranchesMultiline(t *testing.T) {
 			t.Error("Third line should be indented")
 		}
 
-		// Check that there's a blank line
+		// Check that there's a blank line after first entry
 		if lines[3] != "" {
-			t.Error("Expected blank line between entries")
+			t.Error("Expected blank line after first entry")
+		}
+
+		// Check second branch doesn't have star (no worktree)
+		if !strings.HasPrefix(lines[4], "1: fix/issue-456") {
+			t.Errorf("Fifth line doesn't match expected format: %s", lines[4])
+		}
+	})
+
+	t.Run("empty branch list", func(t *testing.T) {
+		var branches []branchCommitInfo
+
+		// Capture output
+		oldStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		displayBranches(branches, 10)
+
+		w.Close()
+		output, _ := io.ReadAll(r)
+		os.Stdout = oldStdout
+
+		// Should produce no output
+		if len(output) != 0 {
+			t.Errorf("Expected no output for empty branch list, got: %s", string(output))
 		}
 	})
 }
