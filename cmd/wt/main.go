@@ -250,8 +250,9 @@ func handleRecentCommand(args []string) {
 	}
 
 	// Parse flags and check for numeric navigation
-	var showMe, showOthers bool
-	var count = 10 // default
+	var showOthers bool
+	var showAll bool // New flag for showing all branches
+	var count = 10   // default
 	var currentUserName string
 	var navigateIndex = -1
 
@@ -259,11 +260,11 @@ func handleRecentCommand(args []string) {
 	for i < len(args) {
 		arg := args[i]
 		switch {
-		case arg == "--me":
-			showMe = true
-			i++
 		case arg == "--others":
 			showOthers = true
+			i++
+		case arg == "--all":
+			showAll = true
 			i++
 		case arg == "-n" && i+1 < len(args):
 			n, err := strconv.Atoi(args[i+1])
@@ -282,15 +283,15 @@ func handleRecentCommand(args []string) {
 	}
 
 	// Validate flags
-	if showMe && showOthers {
-		printErrorAndExit("cannot use --me and --others together")
+	if showOthers && showAll {
+		printErrorAndExit("cannot use --others and --all together")
 	}
 
 	// Get git client
 	gitClient := git.NewCommandClient("")
 
-	// Get current user if filtering by author
-	if showMe || showOthers {
+	// Get current user (we need it unless --all is used)
+	if !showAll {
 		var err error
 		currentUserName, err = gitClient.GetConfigValue("user.name")
 		if err != nil {
@@ -392,17 +393,23 @@ func handleRecentCommand(args []string) {
 		branchInfos[i].hasWorktree = worktreeBranches[branchInfos[i].branch]
 	}
 
-	// Filter by author if requested
+	// Filter by author (default is to show only current user's branches)
 	branches := make([]branchCommitInfo, 0, len(branchInfos))
 	for _, bi := range branchInfos {
-		if showMe && bi.author != currentUserName {
-			continue
+		if showAll {
+			// Show all branches
+			branches = append(branches, bi)
+		} else if showOthers {
+			// Show only other users' branches
+			if bi.author != currentUserName {
+				branches = append(branches, bi)
+			}
+		} else {
+			// Default: show only current user's branches
+			if bi.author == currentUserName {
+				branches = append(branches, bi)
+			}
 		}
-		if showOthers && bi.author == currentUserName {
-			continue
-		}
-
-		branches = append(branches, bi)
 	}
 
 	// Handle numeric navigation
@@ -1292,9 +1299,9 @@ Quick access:
 
 Smart commands (with fuzzy branch matching):
   list, ls            List all worktrees
-  recent              Show recently active branches (by commit date)
-                      Navigate directly: 'wt recent 2' → go to 3rd recent branch
-                      Options: --me, --others, -n <count>
+  recent              Show YOUR recently active branches (default: your branches only)
+                      Navigate directly: 'wt recent 2' → go to your 3rd recent branch
+                      Options: --all, --others, -n <count>
   new <branch>        Smart worktree creation - handles all branch states:
                       • Branch doesn't exist → Create branch + worktree + switch
                       • Branch exists, no worktree → Create worktree + switch
