@@ -271,17 +271,7 @@ func handleRecentCommand(args []string) {
 	// Collect branch information
 	branchResult := collectBranchInfo(gitClient)
 	if len(branchResult.branches) == 0 {
-		if len(branchResult.skipped) > 0 {
-			fmt.Printf("No valid branches found (%d branches skipped)\n", len(branchResult.skipped))
-			if flags.verbose {
-				fmt.Println("\nSkipped branches:")
-				for _, skipped := range branchResult.skipped {
-					fmt.Printf("  %s: %s\n", skipped.branch, skipped.reason)
-				}
-			}
-		} else {
-			fmt.Println("No branches found")
-		}
+		displayNoBranchesMessage(branchResult.skipped, flags.verbose)
 		return
 	}
 
@@ -301,12 +291,7 @@ func handleRecentCommand(args []string) {
 	displayBranches(branches, flags.count)
 
 	// Display summary of skipped branches if verbose mode is enabled
-	if flags.verbose && len(branchResult.skipped) > 0 {
-		fmt.Printf("\n%d branches were skipped:\n", len(branchResult.skipped))
-		for _, skipped := range branchResult.skipped {
-			fmt.Printf("  %s: %s\n", skipped.branch, skipped.reason)
-		}
-	}
+	displaySkippedBranchesIfVerbose(branchResult.skipped, flags.verbose)
 }
 
 func handleRemoveCommand(args []string) {
@@ -1634,5 +1619,30 @@ func displayBranches(branches []branchCommitInfo, count int) {
 
 		fmt.Printf("%d: %s%-20s %-15s %-40s %s\n",
 			i, worktreeIndicator, branch.branch, branch.relativeDate, branch.subject, branch.author)
+	}
+}
+
+// displayNoBranchesMessage shows appropriate message when no branches are found
+func displayNoBranchesMessage(skipped []skippedBranchInfo, verbose bool) {
+	if len(skipped) > 0 {
+		fmt.Printf("No valid branches found (%d branches skipped)\n", len(skipped))
+		if verbose {
+			fmt.Println("\nSkipped branches:")
+			for _, s := range skipped {
+				fmt.Printf("  %s: %s\n", s.branch, s.reason)
+			}
+		}
+	} else {
+		fmt.Println("No branches found")
+	}
+}
+
+// displaySkippedBranchesIfVerbose shows skipped branches summary if verbose mode is enabled
+func displaySkippedBranchesIfVerbose(skipped []skippedBranchInfo, verbose bool) {
+	if verbose && len(skipped) > 0 {
+		fmt.Printf("\n%d branches were skipped:\n", len(skipped))
+		for _, s := range skipped {
+			fmt.Printf("  %s: %s\n", s.branch, s.reason)
+		}
 	}
 }
