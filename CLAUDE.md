@@ -882,4 +882,13 @@ A task is **Done** only when **ALL** of the following are complete:
   interactive UI.
 - When users mention to create a task, they mean to create a task using Backlog.md CLI tool.
 
+## 11. Worktree Workflow (Internal Only)
+
+- The full workflow lives in `docs/WORKTREE_WORKFLOW.md`. Read it before starting or resuming any task.
+- Always keep `main` pristine: commit generated backlog files immediately and verify with `git status -sb` at the start/end of every session.
+- Every task gets its own branch/worktree named `task-<id>-<slug>`. Create it from a clean `main` (`git worktree add …` or `wt new …`) and log ownership in the Backlog notes with timestamp, path, and base commit.
+- Before running commands, double-check you are inside the task worktree using `git status -sb` and `git rev-parse --abbrev-ref HEAD`. If you ever touch `main`, capture the diff, re-apply it in the worktree, restore `main`, and record the correction.
+- Rebase often, commit WIP snapshots, and keep the Backlog thread authoritative on pauses, scope changes, and wrap-ups.
+- When integrating, rebase onto `main`, fast-forward merge, then immediately remove the worktree and branch so no stale directories remain.
+
 <!-- BACKLOG.MD GUIDELINES END -->
