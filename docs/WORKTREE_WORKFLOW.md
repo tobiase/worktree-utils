@@ -36,6 +36,7 @@ This document captures the canonical workflow for managing backlog tasks with de
 - **Session boundaries**: At the start *and* end of each session, open the primary `main` checkout and run `git status -sb`. Clean up strays before you leave.
 - **Frequent rebases**: `git fetch && git rebase origin/main` from the task branch whenever `main` moves.
 - **Commit often**: Make WIP commits before stepping away so hand-offs never rely on an uncommitted working tree.
+- **One-step cleanup**: Prefer `wt rm <branch> --branch` when you're ready to delete a worktree—this keeps `main` clean and deletes the branch only if it's fully merged (use `--force` only when you intentionally mirror `git branch -D`).
 
 ## 4. Handling Mistakes
 
@@ -55,7 +56,16 @@ If you ever edit inside `main`:
 
 ## 6. Integration & Cleanup
 
-When the user says “integrate into main” (or similar wording):
+When the user says “integrate into main” (or similar wording) you can now run:
+
+```bash
+wt integrate task-<id>-<slug>
+```
+
+`wt integrate` does the documented checklist for you: it fetches, rebases the task branch onto the latest `main`, fast-forward merges from the primary checkout, and then removes both the worktree and branch.
+
+If you need to do things manually (or the command reports a conflict):
+
 1. From the task worktree: `git fetch && git rebase origin/main`.
 2. From the primary checkout:
    ```bash

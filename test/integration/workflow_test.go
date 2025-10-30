@@ -224,6 +224,58 @@ func TestNewNoSwitchWorkflow(t *testing.T) {
 	})
 }
 
+func TestIntegrateWorkflow(t *testing.T) {
+	binPath := buildTestBinary(t)
+	defer os.Remove(binPath)
+
+	repo, cleanup := helpers.CreateTestRepo(t)
+	defer cleanup()
+
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(repo)
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Create the worktree/branch via wt
+	_ = runCommand(t, binPath, "new", "feature-integrate")
+
+	worktreeBase := filepath.Join(filepath.Dir(repo), filepath.Base(repo)+"-worktrees")
+	worktreePath := filepath.Join(worktreeBase, "feature-integrate")
+
+	featureFile := filepath.Join(worktreePath, "integration.txt")
+	if err := os.WriteFile(featureFile, []byte("integration work"), 0644); err != nil {
+		t.Fatalf("Failed to write feature file: %v", err)
+	}
+
+	if _, _, err := helpers.RunCommand(t, "git", "-C", worktreePath, "add", "."); err != nil {
+		t.Fatalf("Failed to add changes: %v", err)
+	}
+	if _, _, err := helpers.RunCommand(t, "git", "-C", worktreePath, "commit", "-m", "integration change"); err != nil {
+		t.Fatalf("Failed to commit feature work: %v", err)
+	}
+
+	output := runCommand(t, binPath, "integrate", "feature-integrate")
+	if !strings.Contains(output, "Integrated feature-integrate") {
+		t.Fatalf("Expected integrate confirmation, got: %s", output)
+	}
+
+	if _, err := os.Stat(worktreePath); !os.IsNotExist(err) {
+		t.Fatalf("Worktree directory %s should be removed", worktreePath)
+	}
+
+	if _, _, err := helpers.RunCommand(t, "git", "show-ref", "--verify", "--quiet", "refs/heads/feature-integrate"); err == nil {
+		t.Fatal("feature-integrate branch should be deleted")
+	}
+
+	mergedFile := filepath.Join(repo, "integration.txt")
+	data, err := os.ReadFile(mergedFile)
+	if err != nil {
+		t.Fatalf("Integrated file should exist in main: %v", err)
+	}
+	if string(data) != "integration work" {
+		t.Fatalf("Unexpected integration.txt contents: %s", string(data))
+	}
+}
+
 // TestEnvCopyWorkflow tests the env-copy functionality
 func TestEnvCopyWorkflow(t *testing.T) {
 	// Build the binary

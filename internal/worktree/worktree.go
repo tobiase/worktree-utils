@@ -20,6 +20,12 @@ type Worktree struct {
 	Branch string
 }
 
+// RemoveOptions controls optional cleanup behavior when deleting a worktree
+type RemoveOptions struct {
+	DeleteBranch bool
+	Force        bool
+}
+
 // GetRepoRoot returns the root directory of the git repository
 func GetRepoRoot() (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
@@ -250,52 +256,52 @@ func RunSetup(repoRoot, worktreePath string, setup *config.SetupConfig) error {
 	return runWorktreeSetup(repoRoot, worktreePath, setup)
 }
 
-// Remove deletes a worktree by branch name or path
+// Remove deletes a worktree without any additional cleanup
 func Remove(target string) error {
+	return RemoveWithOptions(target, RemoveOptions{})
+}
+
+// RemoveWithOptions deletes a worktree and optionally removes its branch
+func RemoveWithOptions(target string, opts RemoveOptions) error {
 	repo, err := GetRepoRoot()
 	if err != nil {
 		return err
 	}
 
-	// First, try to find the worktree by branch name
 	worktrees, err := parseWorktrees()
 	if err != nil {
 		return err
 	}
 
-	var worktreePath string
-	for _, wt := range worktrees {
-		if wt.Branch == target {
-			worktreePath = wt.Path
-			break
-		}
+	worktreePath, branchName, err := resolveWorktreeTarget(repo, worktrees, target)
+	if err != nil {
+		return err
 	}
 
-	// If not found by branch name, check if target is a path
-	if worktreePath == "" {
-		// Check if target is an absolute path that exists
-		if filepath.IsAbs(target) {
-			if _, err := os.Stat(target); err == nil {
-				worktreePath = target
-			}
-		} else {
-			// Try as a relative path from repo root
-			testPath := filepath.Join(repo, target)
-			if _, err := os.Stat(testPath); err == nil {
-				worktreePath = testPath
-			}
+	defaultBranch := detectDefaultBranch(repo)
+	if opts.DeleteBranch {
+		if branchName == "" {
+			return fmt.Errorf("cannot determine branch for worktree '%s'", target)
 		}
-	}
-
-	if worktreePath == "" {
-		return fmt.Errorf("worktree '%s' not found", target)
+		if err := ensureBranchDeletionSafety(repo, branchName, worktreePath, worktrees, defaultBranch, opts.Force); err != nil {
+			return err
+		}
 	}
 
 	cmd := exec.Command("git", "-C", repo, "worktree", "remove", worktreePath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return err
+	}
 
-	return cmd.Run()
+	if opts.DeleteBranch {
+		if err := deleteBranch(repo, branchName, opts.Force); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // GetAvailableBranches returns a list of branch names from existing worktrees
@@ -356,6 +362,124 @@ func checkBranchExists(branch string) bool {
 
 	cmd := exec.Command("git", "-C", repo, "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
 	return cmd.Run() == nil
+}
+
+func resolveWorktreeTarget(repo string, worktrees []Worktree, target string) (string, string, error) {
+	for _, wt := range worktrees {
+		if wt.Branch == target {
+			return wt.Path, wt.Branch, nil
+		}
+	}
+
+	candidates := []string{target}
+	if !filepath.IsAbs(target) {
+		candidates = append(candidates, filepath.Join(repo, target))
+	}
+
+	for _, candidate := range candidates {
+		normalized := normalizePath(candidate)
+		for _, wt := range worktrees {
+			if samePath(wt.Path, normalized) {
+				return wt.Path, wt.Branch, nil
+			}
+		}
+	}
+
+	return "", "", fmt.Errorf("worktree '%s' not found", target)
+}
+
+func normalizePath(p string) string {
+	if p == "" {
+		return ""
+	}
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		abs = p
+	}
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		return resolved
+	}
+	return abs
+}
+
+func samePath(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	return normalizePath(a) == normalizePath(b)
+}
+
+func detectDefaultBranch(repo string) string {
+	cmd := exec.Command("git", "-C", repo, "symbolic-ref", "refs/remotes/origin/HEAD")
+	if output, err := cmd.Output(); err == nil {
+		ref := strings.TrimSpace(string(output))
+		if strings.HasPrefix(ref, "refs/remotes/origin/") {
+			return strings.TrimPrefix(ref, "refs/remotes/origin/")
+		}
+	}
+
+	cmd = exec.Command("git", "-C", repo, "config", "--get", "init.defaultBranch")
+	if output, err := cmd.Output(); err == nil {
+		branch := strings.TrimSpace(string(output))
+		if branch != "" {
+			return branch
+		}
+	}
+
+	return "main"
+}
+
+func ensureBranchDeletionSafety(repo, branch, worktreePath string, worktrees []Worktree, defaultBranch string, force bool) error {
+	if force {
+		return nil
+	}
+
+	for _, wt := range worktrees {
+		if wt.Branch == branch && !samePath(wt.Path, worktreePath) {
+			return fmt.Errorf("branch '%s' is checked out at %s; switch that worktree to another branch or rerun with --force", branch, wt.Path)
+		}
+	}
+
+	if branch == defaultBranch {
+		return fmt.Errorf("refusing to delete default branch '%s'", branch)
+	}
+
+	merged, err := branchMergedInto(repo, branch, defaultBranch)
+	if err != nil {
+		return fmt.Errorf("failed to verify merge status for %s: %w", branch, err)
+	}
+	if !merged {
+		return fmt.Errorf("branch '%s' is not merged into %s; rerun with --force to delete anyway", branch, defaultBranch)
+	}
+
+	return nil
+}
+
+func branchMergedInto(repo, branch, base string) (bool, error) {
+	if branch == base {
+		return true, nil
+	}
+	cmd := exec.Command("git", "-C", repo, "merge-base", "--is-ancestor", branch, base)
+	if err := cmd.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func deleteBranch(repo, branch string, force bool) error {
+	args := []string{"-C", repo, "branch"}
+	if force {
+		args = append(args, "-D", branch)
+	} else {
+		args = append(args, "-d", branch)
+	}
+	cmd := exec.Command("git", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 // checkWorktreeExists checks if a worktree exists for the given branch

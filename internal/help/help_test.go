@@ -79,6 +79,16 @@ func TestShowCommandHelp(t *testing.T) {
 			},
 		},
 		{
+			name:    "integrate command help",
+			command: "integrate",
+			wantContain: []string{
+				"NAME",
+				"wt integrate",
+				"Rebase a worktree branch",
+				"OPTIONS",
+			},
+		},
+		{
 			name:    "env command help",
 			command: "env",
 			wantContain: []string{
@@ -234,7 +244,7 @@ func TestHasHelpFlag(t *testing.T) {
 
 func TestCommandHelpMapContent(t *testing.T) {
 	expectedCommands := []string{
-		"list", "go", "rm", "new", "env", "env-copy",
+		"list", "go", "rm", "integrate", "new", "env", "env-copy",
 		"project", "completion", "setup", "update", "version",
 	}
 

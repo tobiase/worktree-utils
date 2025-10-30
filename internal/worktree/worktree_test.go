@@ -796,6 +796,95 @@ func TestRemoveWorktreeWithUncommittedChanges(t *testing.T) {
 	}
 }
 
+func TestRemoveWithOptionsBranchDeletionSafety(t *testing.T) {
+	repo, cleanup := helpers.CreateTestRepo(t)
+	defer cleanup()
+
+	oldWd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(repo)
+
+	worktreePath, err := helpers.AddTestWorktree(t, repo, "feature-cleanup")
+	if err != nil {
+		t.Fatalf("Failed to create test worktree: %v", err)
+	}
+
+	testFile := filepath.Join(worktreePath, "feature.txt")
+	if err := os.WriteFile(testFile, []byte("feature content"), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	if _, _, err := helpers.RunCommand(t, "git", "-C", worktreePath, "add", "."); err != nil {
+		t.Fatalf("Failed to add changes: %v", err)
+	}
+	if _, _, err := helpers.RunCommand(t, "git", "-C", worktreePath, "commit", "-m", "feature work"); err != nil {
+		t.Fatalf("Failed to commit changes: %v", err)
+	}
+
+	err = RemoveWithOptions("feature-cleanup", RemoveOptions{DeleteBranch: true})
+	if err == nil || !strings.Contains(err.Error(), "not merged") {
+		t.Fatalf("Expected merge safety error, got: %v", err)
+	}
+
+	if _, statErr := os.Stat(worktreePath); os.IsNotExist(statErr) {
+		t.Fatal("Worktree should remain after failed branch deletion")
+	}
+
+	if _, _, err := helpers.RunCommand(t, "git", "merge", "--ff-only", "feature-cleanup"); err != nil {
+		t.Fatalf("Failed to merge branch: %v", err)
+	}
+
+	if err := RemoveWithOptions("feature-cleanup", RemoveOptions{DeleteBranch: true}); err != nil {
+		t.Fatalf("Expected successful removal after merge, got: %v", err)
+	}
+
+	if _, statErr := os.Stat(worktreePath); !os.IsNotExist(statErr) {
+		t.Fatal("Worktree directory should be removed")
+	}
+
+	if _, _, err := helpers.RunCommand(t, "git", "show-ref", "--verify", "--quiet", "refs/heads/feature-cleanup"); err == nil {
+		t.Fatal("Branch should be deleted once cleanup succeeds")
+	}
+}
+
+func TestRemoveWithOptionsForceDeletesBranch(t *testing.T) {
+	repo, cleanup := helpers.CreateTestRepo(t)
+	defer cleanup()
+
+	oldWd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(oldWd) }()
+	_ = os.Chdir(repo)
+
+	worktreePath, err := helpers.AddTestWorktree(t, repo, "force-branch")
+	if err != nil {
+		t.Fatalf("Failed to create test worktree: %v", err)
+	}
+
+	forceFile := filepath.Join(worktreePath, "force.txt")
+	if err := os.WriteFile(forceFile, []byte("force content"), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	if _, _, err := helpers.RunCommand(t, "git", "-C", worktreePath, "add", "."); err != nil {
+		t.Fatalf("Failed to add changes: %v", err)
+	}
+	if _, _, err := helpers.RunCommand(t, "git", "-C", worktreePath, "commit", "-m", "force work"); err != nil {
+		t.Fatalf("Failed to commit changes: %v", err)
+	}
+
+	if err := RemoveWithOptions("force-branch", RemoveOptions{DeleteBranch: true, Force: true}); err != nil {
+		t.Fatalf("Expected force removal to succeed, got: %v", err)
+	}
+
+	if _, statErr := os.Stat(worktreePath); !os.IsNotExist(statErr) {
+		t.Fatal("Worktree directory should be removed with force")
+	}
+
+	if _, _, err := helpers.RunCommand(t, "git", "show-ref", "--verify", "--quiet", "refs/heads/force-branch"); err == nil {
+		t.Fatal("Branch should be deleted when force is used")
+	}
+}
+
 func TestDeepDirectoryPaths(t *testing.T) {
 	repo, cleanup := helpers.CreateTestRepo(t)
 	defer cleanup()

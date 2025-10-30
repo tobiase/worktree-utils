@@ -25,3 +25,7 @@ Implement the missing integrations between `wt` and our disciplined worktree wor
 - [ ] Integration aborts cleanly with actionable output when the rebase conflicts or the merge cannot fast-forward.
 - [ ] CLI help + docs (`CLAUDE.md`, `docs/WORKTREE_WORKFLOW.md`, and command help) describe the new flag and integrate flow.
 - [ ] Unit/integration tests cover the new flag behavior and integration command happy/error paths.
+
+## Notes
+
+- [2025-10-25 02:25] Worktree task-31-integrate-workflow @ /Users/tobias/Projects/worktree-utils-worktrees/task-31-integrate-workflow (base 776b153)

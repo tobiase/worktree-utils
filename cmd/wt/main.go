@@ -206,6 +206,8 @@ func runCommand(cmd string, args []string, configMgr *config.Manager) {
 		handleRecentCommand(args)
 	case "rm":
 		handleRemoveCommand(args)
+	case "integrate":
+		handleIntegrateCommand(args)
 	case "go":
 		handleGoCommand(args)
 	case "new":
@@ -307,10 +309,16 @@ func handleRemoveCommand(args []string) {
 	// Parse flags
 	var useFuzzy bool
 	var target string
+	var deleteBranch bool
+	var force bool
 
 	for _, arg := range args {
 		if arg == fuzzyFlag || arg == fuzzyFlagShort {
 			useFuzzy = true
+		} else if arg == "--branch" {
+			deleteBranch = true
+		} else if arg == "--force" {
+			force = true
 		} else if arg == helpFlag || arg == helpFlagShort {
 			// Skip help flags - they're handled separately
 			continue
@@ -337,7 +345,60 @@ func handleRemoveCommand(args []string) {
 		target = resolvedTarget
 	}
 
-	if err := worktree.Remove(target); err != nil {
+	var err error
+	if deleteBranch {
+		err = worktree.RemoveWithOptions(target, worktree.RemoveOptions{DeleteBranch: true, Force: force})
+	} else {
+		err = worktree.Remove(target)
+	}
+
+	if err != nil {
+		printErrorAndExit("%v", err)
+	}
+}
+
+func handleIntegrateCommand(args []string) {
+	if help.HasHelpFlag(args, "integrate") {
+		return
+	}
+
+	var useFuzzy bool
+	var target string
+
+	for _, arg := range args {
+		switch arg {
+		case fuzzyFlag, fuzzyFlagShort:
+			useFuzzy = true
+		case helpFlag, helpFlagShort:
+			continue
+		default:
+			if strings.HasPrefix(arg, "-") {
+				if arg == "--force" {
+					printErrorAndExit("wt integrate does not support --force; delete the branch manually if you need to bypass merge checks")
+				}
+				continue
+			}
+			target = arg
+			break
+		}
+	}
+
+	if target == "" {
+		target = selectBranchInteractively(useFuzzy, "Usage: wt integrate <worktree>")
+	} else {
+		branches, branchErr := worktree.GetAvailableBranches()
+		if branchErr != nil {
+			printErrorAndExit("%v", branchErr)
+		}
+
+		resolvedTarget, resolveErr := worktree.ResolveBranchName(target, branches)
+		if resolveErr != nil {
+			printErrorAndExit("%v", resolveErr)
+		}
+		target = resolvedTarget
+	}
+
+	if err := worktree.Integrate(target); err != nil {
 		printErrorAndExit("%v", err)
 	}
 }

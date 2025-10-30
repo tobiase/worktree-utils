@@ -12,7 +12,7 @@ func TestGetCompletionData(t *testing.T) {
 
 	// Test core commands are present
 	expectedCommands := []string{
-		"list", "add", "rm", "go", "new", "env-copy",
+		"list", "add", "rm", "integrate", "go", "new", "env-copy",
 		"project", "setup", "update", "version", "help",
 		"completion", "shell-init",
 	}

@@ -14,6 +14,7 @@ This is a personal utility project. While public for ease of access, I'm not acc
 - 🚀 **Quick Navigation** - Switch between worktrees instantly with `wt go` or `wt 0`, `wt 1`
 - 🧠 **Smart Commands** - `wt new feature` works regardless of branch state (new/existing/has worktree)
 - 🔍 **Fuzzy Matching** - `wt go mai` automatically switches to `main`, with smart suggestions
+- ✅ **One-Command Integration** - `wt integrate <branch>` rebases onto `main`, fast-forward merges, then removes the worktree/branch
 - 📖 **Universal Help** - All commands support `--help`/`-h` with detailed documentation
 - 📁 **Project-Specific Commands** - Define custom navigation shortcuts per project
 - 🔄 **Environment Sync** - Copy `.env` files between worktrees
@@ -65,6 +66,11 @@ wt 1                       # Direct shortcut to second worktree
 # Smart removal with suggestions
 wt rm feature-branch       # Remove by exact name
 wt rm feat                 # Fuzzy match for removal
+wt rm feature --branch     # Remove worktree AND delete branch (safe by default)
+wt rm feature --branch --force # Force branch deletion if it's not merged
+
+# Integrate and clean up in one step
+wt integrate feature-branch     # Rebase onto main, fast-forward merge, remove worktree/branch
 
 # Get help for any command
 wt go --help               # Detailed help for 'go' command

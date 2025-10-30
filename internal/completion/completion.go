@@ -96,7 +96,21 @@ func getCoreCommands() []Command {
 		{
 			Name:        "rm",
 			Description: "Remove a worktree",
-			Flags:       []Flag{},
+			Flags: []Flag{
+				{Name: "--branch", Description: "Remove the associated Git branch", HasValue: false},
+				{Name: "--force", Description: "Force branch deletion (with --branch)", HasValue: false},
+				{Name: "--fuzzy", Description: "Interactive selection", HasValue: false},
+			},
+			Args: []Argument{
+				{Name: "branch", Description: "Worktree branch name", Type: ArgWorktreeBranch},
+			},
+		},
+		{
+			Name:        "integrate",
+			Description: "Integrate a worktree branch back into main and clean up",
+			Flags: []Flag{
+				{Name: "--fuzzy", Description: "Interactive selection", HasValue: false},
+			},
 			Args: []Argument{
 				{Name: "branch", Description: "Worktree branch name", Type: ArgWorktreeBranch},
 			},

@@ -221,8 +221,36 @@ var commandHelpMap = map[string]CommandHelp{
 				Description: "Force interactive selection for worktree to remove",
 				Example:     "wt rm -f",
 			},
+			{
+				Flag:        "--branch",
+				Description: "Remove the associated Git branch once the worktree is gone",
+				Example:     "wt rm feature --branch",
+			},
+			{
+				Flag:        "--force",
+				Description: "Allow branch deletion even if it is not merged (only with --branch)",
+				Example:     "wt rm feature --branch --force",
+			},
 		},
-		SeeAlso: []string{"wt list", "wt new"},
+		SeeAlso: []string{"wt list", "wt new", "wt integrate"},
+	},
+	"integrate": {
+		Name:        "integrate",
+		Usage:       "wt integrate [branch] [options]",
+		Description: "Rebase a worktree branch onto main, fast-forward merge it, then remove the worktree and branch.",
+		Examples: []string{
+			"wt integrate feature-auth          # Rebase, merge, and clean up",
+			"wt integrate feat --fuzzy          # Interactive selection",
+		},
+		Flags: []FlagHelp{
+			{
+				Flag:        "--fuzzy",
+				ShortFlag:   "-f",
+				Description: "Select the worktree interactively",
+				Example:     "wt integrate --fuzzy",
+			},
+		},
+		SeeAlso: []string{"wt rm", "wt list", "wt new"},
 	},
 	"env-copy": {
 		Name:        "env-copy",

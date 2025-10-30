@@ -889,6 +889,7 @@ A task is **Done** only when **ALL** of the following are complete:
 - Every task gets its own branch/worktree named `task-<id>-<slug>`. Create it from a clean `main` (`git worktree add …` or `wt new …`) and log ownership in the Backlog notes with timestamp, path, and base commit.
 - Before running commands, double-check you are inside the task worktree using `git status -sb` and `git rev-parse --abbrev-ref HEAD`. If you ever touch `main`, capture the diff, re-apply it in the worktree, restore `main`, and record the correction.
 - Rebase often, commit WIP snapshots, and keep the Backlog thread authoritative on pauses, scope changes, and wrap-ups.
-- When integrating, rebase onto `main`, fast-forward merge, then immediately remove the worktree and branch so no stale directories remain.
+- Use `wt rm <branch> --branch` for one-step cleanup (it only deletes the branch if it’s merged; add `--force` only when you intentionally mirror `git branch -D`).
+- `wt integrate <worktree>` automates the documented rebase → fast-forward → cleanup flow; prefer it whenever you’re told to “integrate into main”.
 
 <!-- BACKLOG.MD GUIDELINES END -->
