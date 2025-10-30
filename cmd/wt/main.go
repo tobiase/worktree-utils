@@ -34,6 +34,7 @@ const (
 	fuzzyFlagShort = "-f"
 	helpFlag       = "--help"
 	helpFlagShort  = "-h"
+	forceFlag      = "--force"
 )
 
 // Command constants
@@ -1289,7 +1290,7 @@ func handleUpdateCommand(args []string) {
 		switch arg {
 		case "--check":
 			checkOnly = true
-		case "--force":
+		case forceFlag:
 			force = true
 		case helpFlag, helpFlagShort:
 			// Skip help flags - they're handled separately
