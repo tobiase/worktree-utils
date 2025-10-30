@@ -325,7 +325,6 @@ func handleRemoveCommand(args []string) {
 		} else {
 			// First non-flag argument is the target
 			target = arg
-			break
 		}
 	}
 
@@ -379,7 +378,6 @@ func handleIntegrateCommand(args []string) {
 				continue
 			}
 			target = arg
-			break
 		}
 	}
 
