@@ -46,20 +46,58 @@ const (
 
 const shellWrapper = `# Shell function to handle CD: and EXEC: prefixes
 wt() {
+  local nav_cmd="${1:-}"
+  local nav_target=""
+  local has_fuzzy_flag=0
+  local arg
+  local first_arg=1
+  local output
+  local exit_code
+  local cd_result
+  local cd_path
+  local exec_cmd
+  local line
+
+  # Parse args exactly so branch names like "feature/foo-form" do not trigger fuzzy mode.
+  for arg in "$@"; do
+    if [ $first_arg -eq 1 ]; then
+      first_arg=0
+      continue
+    fi
+
+    case "$arg" in
+      --fuzzy|-f)
+        has_fuzzy_flag=1
+        ;;
+      -*)
+        ;;
+      *)
+        if [ -z "$nav_target" ]; then
+          nav_target="$arg"
+        fi
+        ;;
+    esac
+  done
+
   # Commands that need interactive terminal access (no output capture)
-  if [ $# -eq 0 ] || [[ "$*" == *"--fuzzy"* ]] || [[ "$*" == *"-f"* ]]; then
-    # Run interactively, then get CD path separately
+  if [ $# -eq 0 ] || [ $has_fuzzy_flag -eq 1 ]; then
+    # Run interactively, then get CD path separately when we know the target.
     "${WT_BIN:-wt-bin}" "$@"
     exit_code=$?
 
-    # If successful and it's a 'go' command, try to get the CD path
-    if [ $exit_code -eq 0 ] && [[ "$1" == "go" || $# -eq 0 ]]; then
-      # Use a separate call to get just the CD path without interaction
-      cd_result=$("${WT_BIN:-wt-bin}" go "$2" 2>/dev/null)
-      if [[ "$cd_result" == "CD:"* ]]; then
-        cd "${cd_result#CD:}"
-      fi
+    if [ $exit_code -eq 0 ]; then
+      case "$nav_cmd" in
+        go|switch|s)
+          if [ -n "$nav_target" ]; then
+            cd_result=$("${WT_BIN:-wt-bin}" go "$nav_target" 2>/dev/null)
+            if [[ "$cd_result" == "CD:"* ]]; then
+              cd "${cd_result#CD:}"
+            fi
+          fi
+          ;;
+      esac
     fi
+
     return $exit_code
   fi
 
