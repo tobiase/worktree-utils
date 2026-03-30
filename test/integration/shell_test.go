@@ -194,7 +194,10 @@ func TestShellWrapperScript(t *testing.T) {
 
 	// Create a mock binary that outputs specific strings
 	mockBin := createMockBinary(t, map[string]mockResponse{
-		"go main":    {output: "CD:/test/path", exitCode: 0},
+		"go main":                 {output: "CD:/test/path", exitCode: 0},
+		"go feature-with-fuzzy":   {output: "CD:/test/fuzzy-path", exitCode: 0},
+		"s -f feature-with-fuzzy": {output: "", exitCode: 0},
+		"s 2026-03-04-form-tracking-debug-floating-report": {output: "CD:/test/branch-with-f", exitCode: 0},
 		"venv":       {output: "EXEC:source .venv/bin/activate", exitCode: 0},
 		"list":       {output: "Regular output", exitCode: 0},
 		"error":      {output: "Error message", exitCode: 1, isError: true},
@@ -208,6 +211,7 @@ func TestShellWrapperScript(t *testing.T) {
 		command      string
 		checkScript  string
 		expectOutput string
+		rejectOutput string
 		expectError  bool
 	}{
 		{
@@ -215,6 +219,19 @@ func TestShellWrapperScript(t *testing.T) {
 			command:      "wt go main",
 			checkScript:  `pwd`,
 			expectOutput: "/test/path",
+		},
+		{
+			name:         "branch names containing -f do not trigger fuzzy mode",
+			command:      "wt s 2026-03-04-form-tracking-debug-floating-report",
+			checkScript:  `pwd`,
+			expectOutput: "/test/branch-with-f",
+			rejectOutput: "CD:/test/branch-with-f",
+		},
+		{
+			name:         "s alias resolves cd target after explicit fuzzy flag",
+			command:      "wt s -f feature-with-fuzzy",
+			checkScript:  `pwd`,
+			expectOutput: "/test/fuzzy-path",
 		},
 		{
 			name:         "EXEC prefix executes command",
@@ -274,6 +291,9 @@ eval "$($WT_BIN shell-init)"
 
 			if tt.expectOutput != "" && !strings.Contains(string(output), tt.expectOutput) {
 				t.Errorf("Expected output to contain %q, got %q", tt.expectOutput, string(output))
+			}
+			if tt.rejectOutput != "" && strings.Contains(string(output), tt.rejectOutput) {
+				t.Errorf("Expected output to not contain %q, got %q", tt.rejectOutput, string(output))
 			}
 		})
 	}
@@ -351,16 +371,87 @@ func main() {
 func getShellWrapper() string {
 	return `# Shell function to handle CD: and EXEC: prefixes
 wt() {
+  local nav_cmd="${1:-}"
+  local nav_target=""
+  local has_fuzzy_flag=0
+  local arg
+  local first_arg=1
+  local output
+  local exit_code
+  local cd_result
+  local cd_path
+  local exec_cmd
+  local line
+
+  # Parse args exactly so branch names like "feature/foo-form" do not trigger fuzzy mode.
+  for arg in "$@"; do
+    if [ $first_arg -eq 1 ]; then
+      first_arg=0
+      continue
+    fi
+
+    case "$arg" in
+      --fuzzy|-f)
+        has_fuzzy_flag=1
+        ;;
+      -*)
+        ;;
+      *)
+        if [ -z "$nav_target" ]; then
+          nav_target="$arg"
+        fi
+        ;;
+    esac
+  done
+
+  # Commands that need interactive terminal access (no output capture)
+  if [ $# -eq 0 ] || [ $has_fuzzy_flag -eq 1 ]; then
+    # Run interactively, then get CD path separately when we know the target.
+    "${WT_BIN:-wt-bin}" "$@"
+    exit_code=$?
+
+    if [ $exit_code -eq 0 ]; then
+      case "$nav_cmd" in
+        go|switch|s)
+          if [ -n "$nav_target" ]; then
+            cd_result=$("${WT_BIN:-wt-bin}" go "$nav_target" 2>/dev/null)
+            if [[ "$cd_result" == "CD:"* ]]; then
+              cd "${cd_result#CD:}"
+            fi
+          fi
+          ;;
+      esac
+    fi
+
+    return $exit_code
+  fi
+
+  # Non-interactive commands use output capture
   output=$("${WT_BIN:-wt-bin}" "$@" 2>&1)
   exit_code=$?
 
   if [ $exit_code -eq 0 ]; then
-    if [[ "$output" == "CD:"* ]]; then
-      cd "${output#CD:}"
-    elif [[ "$output" == "EXEC:"* ]]; then
-      eval "${output#EXEC:}"
-    else
-      [ -n "$output" ] && echo "$output"
+    # Check for CD: or EXEC: commands in the output
+    cd_path=""
+    exec_cmd=""
+    while IFS= read -r line; do
+      if [[ "$line" == "CD:"* ]]; then
+        cd_path="${line#CD:}"
+      elif [[ "$line" == "EXEC:"* ]]; then
+        exec_cmd="${line#EXEC:}"
+      else
+        # Print non-command lines (including empty lines)
+        echo "$line"
+      fi
+    done <<< "$output"
+
+    # Execute CD or EXEC commands after printing other output
+    if [ -n "$cd_path" ]; then
+      cd "$cd_path"
+    elif [ -n "$exec_cmd" ]; then
+      # Security note: EXEC commands are only used for virtualenv activation
+      # and paths are quoted by the Go binary to prevent injection
+      eval "$exec_cmd"
     fi
   else
     echo "$output" >&2
